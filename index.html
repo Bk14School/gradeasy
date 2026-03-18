@@ -1998,15 +1998,38 @@ async function adminSetup() {
 }
 
 function updateSubjDrop() {
-  const cls = $('gClass').value;
-  const sel = $('gSubj'); sel.innerHTML = '';
+  // .trim() เพื่อตัดช่องว่างที่อาจแอบซ่อนอยู่ออก
+  const cls = $('gClass').value.trim(); 
+  const sel = $('gSubj'); 
+  if (!sel) return;
+  sel.innerHTML = '';
+
   if (App.user?.isAdmin) {
-    if (!$('gClass').options.length) $('gClass').innerHTML = CONFIG.ALL_CLS.map(c => `<option>${c}</option>`).join('');
-    (App.subs[cls] ||[]).forEach(s => sel.innerHTML += `<option>${s}</option>`);
+    if (!$('gClass').options.length) {
+      $('gClass').innerHTML = CONFIG.ALL_CLS.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+    (App.subs[cls] ||[]).forEach(s => sel.innerHTML += `<option value="${s}">${s}</option>`);
   } else {
-    const f = (App.user?.mySubjects ||[]).filter(s => s.startsWith(cls + '_')).map(s => s.replace(cls + '_', ''));
-    if (f.length) f.forEach(s => sel.innerHTML += `<option>${s}</option>`);
-    else sel.innerHTML = '<option>-- ไม่พบวิชา --</option>';
+    // กรองและตัดคำแบบเซฟที่สุด ป้องกันบั๊กกรณีฐานข้อมูลพิมพ์เว้นวรรคติดมา
+    const mySubs = App.user?.mySubjects ||[];
+    const f = mySubs
+      .map(s => s.trim()) // ตัดช่องว่างหัวท้ายของชุดข้อความก่อน
+      .filter(s => {
+         const parts = s.split('_');
+         // เช็คว่าส่วนแรก (ชื่อชั้น) ตรงกับ Dropdown ไหม
+         return parts[0] && parts[0].trim() === cls; 
+      })
+      .map(s => {
+         const parts = s.split('_');
+         parts.shift(); // ตัดชื่อชั้นทิ้ง
+         return parts.join('_').trim(); // คืนค่าเฉพาะชื่อวิชา
+      });
+
+    if (f.length > 0) {
+      f.forEach(s => sel.innerHTML += `<option value="${s}">${s}</option>`);
+    } else {
+      sel.innerHTML = '<option value="">-- ไม่พบวิชา --</option>';
+    }
   }
 }
 
