@@ -2515,22 +2515,234 @@ function writeToPrintWindow(win, html, title) {
   try { win.document.open(); win.document.write(html.includes('<html') ? html : `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${title}</title></head><body>${html}</body></html>`); win.document.close(); } catch (e) { Utils.toast('เปิดหน้าพิมพ์ไม่ได้', 'error'); }
 }
 
+// =====================================================
+// 🚀 ฟังก์ชันสร้าง HTML ปพ.6 ฝั่ง Frontend
+// =====================================================
+function buildFrontendPP6HTML(d, reportMode) {
+  const formatHolistic = (val) => {
+    const s = String(val || "");
+    if (s.includes("3")) return "ดีเยี่ยม (3)";
+    if (s.includes("2")) return "ดี (2)";
+    if (s.includes("1")) return "ผ่าน (1)";
+    if (s.includes("0")) return "ไม่ผ่าน (0)";
+    return val || "ดีเยี่ยม (3)";
+  };
+
+  const charDisplay = formatHolistic(d.holistic.char);
+  const readDisplay = formatHolistic(d.holistic.read);
+
+  const fullClass = d.classroom
+    .replace("ม.1 เทอม 1", "มัธยมศึกษาปีที่ 1 ภาคเรียนที่ 1").replace("ม.1 เทอม 2", "มัธยมศึกษาปีที่ 1 ภาคเรียนที่ 2")
+    .replace("ม.2 เทอม 1", "มัธยมศึกษาปีที่ 2 ภาคเรียนที่ 1").replace("ม.2 เทอม 2", "มัธยมศึกษาปีที่ 2 ภาคเรียนที่ 2")
+    .replace("ม.3 เทอม 1", "มัธยมศึกษาปีที่ 3 ภาคเรียนที่ 1").replace("ม.3 เทอม 2", "มัธยมศึกษาปีที่ 3 ภาคเรียนที่ 2")
+    .replace("ป.1", "ประถมศึกษาปีที่ 1").replace("ป.2", "ประถมศึกษาปีที่ 2").replace("ป.3", "ประถมศึกษาปีที่ 3")
+    .replace("ป.4", "ประถมศึกษาปีที่ 4").replace("ป.5", "ประถมศึกษาปีที่ 5").replace("ป.6", "ประถมศึกษาปีที่ 6");
+
+  const termInfo = d.classroom.includes("เทอม") ? d.classroom.split("เทอม ")[1] : "";
+  const fullYearText = reportMode === "term1" 
+    ? `ภาคเรียนที่ 1 ปีการศึกษา ${d.year}` 
+    : (termInfo ? `ภาคเรียนที่ ${termInfo} ปีการศึกษา ${d.year}` : `ปีการศึกษา ${d.year}`);
+
+  const mkRow = (s) => `<tr><td>${escHtml(s.name)}</td><td class="text-center">${s.score === "" ? "" : s.score}</td><td class="text-center">${escHtml(s.grade)}</td></tr>`;
+  let basicRows = d.basicSubjects.map(mkRow).join("") || `<tr><td>-</td><td></td><td></td></tr>`;
+  let addRows = d.addSubjects.map(mkRow).join("") || `<tr><td>-</td><td></td><td></td></tr>`;
+
+  const gpaDisplay = d.hasR ? "งดแสดงผล (ติด ร)" : d.gpa;
+  const garudaUrl = "https://raw.githubusercontent.com/Bk14School/easygrade/refs/heads/main/logo-OBEC.png";
+
+  return `
+    <div class="page">
+      <table class="header-table">
+        <tr>
+          <td style="width:16%; text-align:center;"><img src="${garudaUrl}" style="width:60px; height:auto;"></td>
+          <td style="width:84%;">
+            <div class="report-title">
+              <div class="t1">แบบรายงานผลการพัฒนาคุณภาพผู้เรียนรายบุคคล (ปพ.6)</div>
+              <div class="t2">${fullYearText}</div>
+              <div class="t3">โรงเรียนบ้านคลอง 14</div>
+              <div class="t3">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครนายก</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <table class="student-info">
+        <tr>
+          <td style="width:72%;"><b>ชื่อ - สกุล</b> ${escHtml(d.name)} &nbsp;&nbsp;&nbsp; <b>รหัส</b> ${escHtml(d.id)}</td>
+          <td style="width:28%; text-align:right;"><b>ชั้น</b> ${escHtml(fullClass.replace(/ภาคเรียนที่\s*[12]/g,'').trim())}</td>
+        </tr>
+      </table>
+
+      <table class="data-table">
+        <thead>
+          <tr><th colspan="3">หลักสูตรการศึกษาขั้นพื้นฐาน</th></tr>
+          <tr><th class="subject-col">ชื่อวิชา</th><th class="score-col">คะแนน${reportMode === "term1" ? "เต็ม 50" : "เต็ม 100"}</th><th class="grade-col">ผลการเรียน / เกรด</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="section-head">วิชาพื้นฐาน</td><td class="section-head"></td><td class="section-head"></td></tr>
+          ${basicRows}
+          <tr><td class="section-head">วิชาเพิ่มเติม</td><td class="section-head"></td><td class="section-head"></td></tr>
+          ${addRows}
+          <tr class="gpa-box"><td colspan="2" class="text-center">เกรดเฉลี่ย</td><td class="text-center">${escHtml(gpaDisplay)}</td></tr>
+        </tbody>
+      </table>
+
+      <div class="bottom-wrapper clearfix">
+        <div class="box-left">
+          <table class="activity-table">
+            <tr><th colspan="2">กิจกรรมพัฒนาผู้เรียน</th></tr>
+            <tr><td>แนะแนว</td><td class="text-center">ผ่าน</td></tr>
+            <tr><td>ลูกเสือ-เนตรนารี</td><td class="text-center">ผ่าน</td></tr>
+            <tr><td>ชุมนุม</td><td class="text-center">ผ่าน</td></tr>
+            <tr><td>กิจกรรมเพื่อสังคมและสาธารณประโยชน์</td><td class="text-center">ผ่าน</td></tr>
+          </table>
+        </div>
+        <div class="box-right">
+          <table class="result-table">
+            <tr><td style="width:65%;">คุณลักษณะอันพึงประสงค์</td><td style="width:35%;" class="text-center bold">${charDisplay}</td></tr>
+            <tr><td>การอ่าน คิดวิเคราะห์ และเขียน</td><td class="text-center bold">${readDisplay}</td></tr>
+          </table>
+          <table class="sign-area">
+            <tr><td><div class="sign-line">ลงชื่อ ............................................................</div><div>ครูประจำชั้น</div></td></tr>
+            <tr><td><div class="sign-line">ลงชื่อ ............................................................</div><div>ผู้บริหารสถานศึกษา</div></td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// =====================================================
+// 🖨️ ดึงข้อมูล + เขียนทับด้วยค่าหน้าจอ แล้วพิมพ์ ปพ.6
+// ==========================================
+async function openPP6Report(reportType, studentId = null) {
+  const year = $('gYear').value;
+  const classroom = $('gClass').value;
+  const currentSubject = $('gSubj').value;
+  
+  if (!confirm(`พิมพ์ ปพ.6 ${reportType === 'term1' ? 'เทอม 1' : 'ทั้งปี'} ${studentId ? 'ของรหัส '+studentId : 'ทั้งห้อง'} ใช่หรือไม่?\n(ระบบจะดึงข้อมูลที่แก้ไขล่าสุดบนหน้าจอรวมเข้าไปด้วย)`)) return;
+
+  const win = window.open('', '_blank'); 
+  if (!win) return Utils.toast('กรุณาอนุญาต Popup', 'error');
+  win.document.write('<html lang="th"><head><meta charset="UTF-8"></head><body style="text-align:center;padding-top:80px;font-family:sans-serif;"><h2>⏳ กำลังรวบรวมข้อมูล ปพ.6...</h2></body></html>');
+  
+  Utils.showLoading('ดึงข้อมูล ปพ.6...');
+  
+  try {
+    // 1. ดึง JSON จาก Server
+    let studentsData = await api('getPP6Data', { year, classroom, reportMode: reportType, ignoreR: App.ignoreR });
+    
+    // 2. ดึงข้อมูลตารางที่โชว์อยู่ (ยังไม่ได้เซฟ)
+    const activeDOMData = getTableDataForSummary(reportType);
+    const domMap = {};
+    activeDOMData.forEach(r => domMap[r.id] = r);
+
+    // 3. เอาข้อมูลหน้าจอ ไปเขียนทับ (Override) ข้อมูลที่โหลดมาจาก Server
+    studentsData = studentsData.map(stu => {
+      const activeRow = domMap[stu.id];
+      if (activeRow) {
+        // อัปเดตวิชาพื้นฐาน
+        let found = false;
+        stu.basicSubjects.forEach(s => {
+          if (s.name === currentSubject) {
+            s.score = activeRow.total;
+            s.grade = activeRow.grade;
+            found = true;
+          }
+        });
+        // อัปเดตวิชาเพิ่มเติม
+        stu.addSubjects.forEach(s => {
+          if (s.name === currentSubject) {
+            s.score = activeRow.total;
+            s.grade = activeRow.grade;
+            found = true;
+          }
+        });
+        
+        // คำนวณ GPA ใหม่สดๆ
+        let totalGrade = 0, count = 0;
+        stu.hasR = false;[...stu.basicSubjects, ...stu.addSubjects].forEach(s => {
+          if (s.grade === 'ร') stu.hasR = true;
+          else if (s.grade && s.grade !== '-') {
+            totalGrade += Number(s.grade); count++;
+          }
+        });
+        stu.gpa = stu.hasR ? "รอผล" : (count > 0 ? (totalGrade / count).toFixed(2) : "");
+      }
+      return stu;
+    });
+
+    // กรองถ้าเลือกพิมพ์คนเดียว
+    if (studentId) studentsData = studentsData.filter(s => s.id === studentId);
+
+    // 4. วาด HTML
+    const htmlPages = studentsData.map(stu => buildFrontendPP6HTML(stu, reportType)).join("");
+
+    const finalHtml = `
+      <!DOCTYPE html>
+      <html lang="th">
+      <head>
+        <meta charset="UTF-8">
+        <title>ปพ.6_${studentId ? studentId : 'ทั้งห้อง'}_${classroom}</title>
+        <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+        <style>
+          @page { size: A4 portrait; margin: 12mm 15mm 12mm 15mm; }
+          * { font-family: 'Sarabun', sans-serif !important; }
+          body { color: #000; font-size: 15px; line-height: 1.32; margin: 0; padding: 0; }
+          b, strong, th { font-weight: 700 !important; }
+          .page { page-break-after: always; box-sizing: border-box; }
+          .page:last-child { page-break-after: auto; }
+          .header-table { width: 100%; border: none; margin-bottom: 10px; border-collapse: collapse; }
+          .header-table td { border: none; padding: 0; }
+          .report-title { text-align: center; }
+          .report-title .t1 { font-size: 20px; font-weight: 700; }
+          .report-title .t2 { font-size: 17px; font-weight: 700; }
+          .report-title .t3 { font-size: 15px; }
+          .student-info { width: 100%; border: none; margin: 8px 0 12px 0; }
+          .student-info td { border: none; padding: 3px 0; }
+          table.data-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
+          table.data-table th, table.data-table td { border: 1px solid #000; padding: 4px 5px; vertical-align: middle; }
+          table.data-table th { background: #f3f4f6; text-align: center; font-weight: 700; }
+          .section-head { background: #e5e7eb !important; text-align: center; font-weight: 700; }
+          .subject-col { width: 60%; } .score-col { width: 20%; } .grade-col { width: 20%; }
+          .bottom-wrapper { width: 100%; margin-top: 10px; }
+          .box-left { width: 48.5%; float: left; } .box-right { width: 48.5%; float: right; }
+          .clearfix::after { content: ""; clear: both; display: table; }
+          .activity-table, .result-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+          .activity-table th, .activity-table td, .result-table th, .result-table td { border: 1px solid #000; padding: 5px 6px; }
+          .activity-table th, .result-table th { background: #f3f4f6; font-weight: 700; }
+          .gpa-box td { font-weight: 700; }
+          .sign-area { margin-top: 28px; width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 14px; }
+          .sign-area td { border: none !important; text-align: center; padding-top: 22px; }
+          .text-center { text-align: center; } .bold { font-weight: 700; }
+        </style>
+      </head>
+      <body>
+        ${htmlPages}
+        <script>
+          window.onload = function() { setTimeout(function() { window.print(); }, 500); };
+        </script>
+      </body>
+      </html>
+    `;
+    writeToPrintWindow(win, finalHtml, `ปพ.6_${classroom}`);
+  } catch (e) {
+    win.close();
+    Utils.toast(e.message, 'error');
+  }
+  Utils.hideLoading();
+}
+
+// เปลี่ยนฟังก์ชันเดิมให้มาชี้ไปที่ระบบใหม่แทน
 async function printRowPDF(sid, type = 'year') {
-  const win = window.open('', '_blank'); if (!win) return Utils.toast('อนุญาต Popup ด้วยครับ', 'error');
-  win.document.write('<html><head><meta charset="UTF-8"></head><body style="text-align:center;padding-top:80px;color:#666;font-family:sans-serif;"><h2>⏳ กำลังสร้างเอกสาร...</h2></body></html>');
-  Utils.showLoading('กำลังสร้างเอกสาร...');
-  try { writeToPrintWindow(win, await api('generateStudentHTML', { year: $('gYear').value, classroom: $('gClass').value, studentId: sid, ignoreR: App.ignoreR, reportType: type }), `ปพ6_${sid}`); } 
-  catch (e) { win.close(); Utils.toast(e.message, 'error'); } Utils.hideLoading();
+  await openPP6Report(type, sid);
 }
 
 async function printClassPDF(type = 'year') {
-  if (!confirm(`พิมพ์รายงาน ปพ.6 ${type === 'term1' ? 'เทอม 1' : 'ทั้งปี'} ?`)) return;
-  const win = window.open('', '_blank'); if (!win) return Utils.toast('อนุญาต Popup ด้วยครับ', 'error');
-  win.document.write('<html><head><meta charset="UTF-8"></head><body style="text-align:center;padding-top:80px;color:#666;font-family:sans-serif;"><h2>⏳ กำลังสร้างเอกสาร...</h2></body></html>');
-  Utils.showLoading('กำลังสร้างเอกสาร...');
-  try { writeToPrintWindow(win, await api('generateClassHTML', { year: $('gYear').value, classroom: $('gClass').value, ignoreR: App.ignoreR, reportType: type }), `ปพ6_ทั้งห้อง`); } 
-  catch (e) { win.close(); Utils.toast(e.message, 'error'); } Utils.hideLoading();
+  await openPP6Report(type, null);
 }
+
+
 
   // =====================================================
 // ฟังก์ชันช่วยดึงข้อมูลจากหน้าตาราง HTML โดยตรง
