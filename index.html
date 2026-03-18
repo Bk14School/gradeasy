@@ -1764,62 +1764,86 @@ body{
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwOa2Qg0CXQiq1NqI10NKDajlHCiqn0n3Ytkv_0UvdWseBTMqZ_y0ZfChEuV2L7y9ZF/exec";
-const ALL_CLS = ["ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1 เทอม 1","ม.1 เทอม 2","ม.2 เทอม 1","ม.2 เทอม 2","ม.3 เทอม 1","ม.3 เทอม 2"];
-
-let IS_SEM_MODE = false;
-let CU = null;
-let PIN = "";
-let SUBS = {};
-let STUDENTS = [];
-let SI = { 1: [], 2: [] };
-let EXP = { 1: true, 2: true };
-let editTid = null;
-let editAssigned = [];
-let IGNORE_R = false;
-let TERM_DATES = {};
-let HOLIDAYS = [];
-let SCHOOL_PROFILE = {
-  school_name: '',
-  director_name: '',
-  director_position: 'ผู้อำนวยการโรงเรียน',
-  academic_head_name: '',
-  academic_head_position: 'หัวหน้าวิชาการ'
+// =====================================================
+// 1. CONFIG & STATE (การจัดการตั้งค่าและสถานะของแอปพลิเคชัน)
+// =====================================================
+const CONFIG = {
+  WEB_APP_URL: "https://script.google.com/macros/s/AKfycbwOa2Qg0CXQiq1NqI10NKDajlHCiqn0n3Ytkv_0UvdWseBTMqZ_y0ZfChEuV2L7y9ZF/exec",
+  ALL_CLS:["ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1 เทอม 1","ม.1 เทอม 2","ม.2 เทอม 1","ม.2 เทอม 2","ม.3 เทอม 1","ม.3 เทอม 2"]
 };
 
-/* =====================================================
-   UTILS
-   ===================================================== */
-function toast(msg, type = 'success') {
-  const d = document.createElement('div');
-  d.className = `tst ${type}`;
-  d.textContent = msg;
-  document.getElementById('tshelf').appendChild(d);
-  setTimeout(() => d.remove(), 3000);
-}
-
-function pg(text) {
-  document.getElementById('pgov').style.display = 'flex';
-  document.getElementById('pgTxt').textContent = text || '...';
-}
-
-function pg_() {
-  document.getElementById('pgov').style.display = 'none';
-}
-
-function showPage(id) {
-  document.querySelectorAll('.pg').forEach(p => p.classList.remove('on'));
-  document.getElementById(id).classList.add('on');
-  const tabsWrap = document.getElementById('settingsTabsWrap');
-  if (tabsWrap) {
-    if (id === 'gradePage') tabsWrap.classList.add('is-visible');
-    else tabsWrap.classList.remove('is-visible');
+const App = {
+  isSemMode: false,
+  user: null,
+  pin: "",
+  subs: {},
+  students: [],
+  units: { 1: [], 2:[] },
+  expanded: { 1: true, 2: true },
+  editTid: null,
+  editAssigned:[],
+  ignoreR: false,
+  termDates: {},
+  holidays:[],
+  schoolProfile: {
+    school_name: '', director_name: '', director_position: 'ผู้อำนวยการโรงเรียน',
+    academic_head_name: '', academic_head_position: 'หัวหน้าวิชาการ'
   }
-  scrollTo(0, 0);
-}
+};
+
+// =====================================================
+// 2. DOM HELPERS (ตัวช่วยจัดการ HTML เพื่อลดความยาวโค้ด)
+// =====================================================
+const $ = id => document.getElementById(id);
+const $$ = sel => document.querySelectorAll(sel);
+
+// =====================================================
+// 3. UTILITIES & API (ฟังก์ชันช่วยเหลือและการเชื่อมต่อข้อมูล)
+// =====================================================
+const Utils = {
+  toast: (msg, type = 'success') => {
+    const d = document.createElement('div');
+    d.className = `tst ${type}`;
+    d.textContent = msg;
+    $('tshelf').appendChild(d);
+    setTimeout(() => d.remove(), 3000);
+  },
+  
+  showLoading: (text = '...') => {
+    $('pgov').style.display = 'flex';
+    $('pgTxt').textContent = text;
+  },
+  
+  hideLoading: () => {
+    $('pgov').style.display = 'none';
+  },
+  
+  showPage: (id) => {
+    $$('.pg').forEach(p => p.classList.remove('on'));
+    $(id).classList.add('on');
+    
+    const tabsWrap = $('settingsTabsWrap');
+    if (tabsWrap) {
+      tabsWrap.classList.toggle('is-visible', id === 'gradePage');
+    }
+    window.scrollTo(0, 0);
+  },
+  
+  calcGradeFrontend: (score) => {
+    const s = Number(score) || 0;
+    if (s >= 80) return "4";
+    if (s >= 75) return "3.5";
+    if (s >= 70) return "3";
+    if (s >= 65) return "2.5";
+    if (s >= 60) return "2";
+    if (s >= 55) return "1.5";
+    if (s >= 50) return "1";
+    return "0";
+  }
+};
 
 async function api(action, data = {}) {
-  const r = await fetch(WEB_APP_URL, {
+  const r = await fetch(CONFIG.WEB_APP_URL, {
     method: 'POST',
     body: JSON.stringify({ action, data })
   });
@@ -1828,97 +1852,101 @@ async function api(action, data = {}) {
   return j.data;
 }
 
-function calcGradeFrontend(score) {
-  const s = Number(score) || 0;
-  if (s >= 80) return "4";
-  if (s >= 75) return "3.5";
-  if (s >= 70) return "3";
-  if (s >= 65) return "2.5";
-  if (s >= 60) return "2";
-  if (s >= 55) return "1.5";
-  if (s >= 50) return "1";
-  return "0";
-}
-
-/* =====================================================
-   PIN / LOGIN
-   ===================================================== */
+// =====================================================
+// 4. AUTH & LOGIN (ระบบเข้าสู่ระบบด้วย PIN)
+// =====================================================
 function updDots(err = false) {
-  document.querySelectorAll('.dot').forEach((d, i) => {
-    d.className = 'dot' + (err ? ' err' : (i < PIN.length ? ' on' : ''));
+  $$('.dot').forEach((d, i) => {
+    d.className = 'dot' + (err ? ' err' : (i < App.pin.length ? ' on' : ''));
   });
 }
 
 function ap(n) {
-  if (PIN.length < 4) {
-    PIN += n;
+  if (App.pin.length < 4) {
+    App.pin += n;
     updDots();
-    if (PIN.length === 4) setTimeout(doLogin, 150);
+    if (App.pin.length === 4) setTimeout(doLogin, 150);
   }
 }
 
-function dp() { PIN = PIN.slice(0, -1); updDots(); }
-function cp() { PIN = ""; updDots(); }
+function dp() { App.pin = App.pin.slice(0, -1); updDots(); }
+function cp() { App.pin = ""; updDots(); }
 
 async function doLogin() {
-  pg('กำลังโหลด...');
+  Utils.showLoading('กำลังโหลด...');
   try {
     const [u, subs] = await Promise.all([
-      api('login', { password: PIN }),
+      api('login', { password: App.pin }),
       api('getAllSubjects')
     ]);
 
-    CU = u;
-    SUBS = subs;
+    App.user = u;
+    App.subs = subs;
 
-    const teacherTag = document.getElementById('teacherTag');
-    const btnGrade = document.getElementById('btnGrade');
-    const btnOut = document.getElementById('btnOut');
-    const btnAdmin = document.getElementById('btnAdmin');
+    // แสดงปุ่มและป้ายชื่อ
+    if ($('teacherTag')) { 
+      $('teacherTag').textContent = `🎓 ${App.user.name}`; 
+      $('teacherTag').style.display = 'flex'; 
+    }['btnGrade', 'btnOut'].forEach(id => { if ($(id)) $(id).style.display = 'inline-flex'; });
 
-    if (teacherTag) { teacherTag.textContent = `🎓 ${CU.name}`; teacherTag.style.display = 'flex'; }
-    if (btnGrade) btnGrade.style.display = 'inline-flex';
-    if (btnOut) btnOut.style.display = 'inline-flex';
-
-    if (CU.isAdmin) {
-      if (btnAdmin) btnAdmin.style.display = 'inline-flex';
+    // แยกการนำทางระหว่าง Admin กับ Teacher
+    if (App.user.isAdmin) {
+      if ($('btnAdmin')) $('btnAdmin').style.display = 'inline-flex';
       loadTeachers();
-      showPage('adminPage');
+      Utils.showPage('adminPage');
     } else {
-      CU.mySubjects = CU.subjects ? CU.subjects.split(',') : [];
-      const cls = [...new Set(CU.mySubjects.map(s => s.split('_')[0]).filter(Boolean))];
-      CU.allowedClasses = cls;
+      App.user.mySubjects = App.user.subjects ? App.user.subjects.split(',') : [];
+      const cls =[...new Set(App.user.mySubjects.map(s => s.split('_')[0]).filter(Boolean))];
+      App.user.allowedClasses = cls;
 
-      const sel = document.getElementById('gClass');
+      const sel = $('gClass');
       sel.innerHTML = cls.length
         ? cls.map(c => `<option>${c}</option>`).join('')
         : `<option value="">ไม่มีสิทธิ์</option>`;
 
-      if (cls.includes(CU.classroom)) sel.value = CU.classroom;
-      updateSubjDrop();
-      showPage('gradePage');
+      if (cls.includes(App.user.classroom)) sel.value = App.user.classroom;
+      updateSubjDrop(); // ฟังก์ชันนี้จะถูกเรียกจากด้านล่างของโค้ดเดิม
+      Utils.showPage('gradePage');
     }
     cp();
   } catch (e) {
     updDots(true);
     setTimeout(cp, 400);
-    toast(e.message, 'error');
+    Utils.toast(e.message, 'error');
   }
-  pg_();
+  Utils.hideLoading();
 }
 
 function logout() {
-  CU = null;
+  App.user = null;
   cp();
   ['teacherTag', 'btnAdmin', 'btnGrade', 'btnOut'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.display = 'none';
+    if ($(id)) $(id).style.display = 'none';
   });
-  const tabsWrap = document.getElementById('settingsTabsWrap');
-  if (tabsWrap) tabsWrap.classList.remove('is-visible');
-  showPage('loginPage');
+  if ($('settingsTabsWrap')) $('settingsTabsWrap').classList.remove('is-visible');
+  Utils.showPage('loginPage');
 }
+
+// =====================================================
+// ฟังก์ชันของเดิมในส่วนที่เหลือ (เช่น loadTeachers, buildTable) เริ่มตรงนี้...
+// *** เพื่อให้โค้ดใหม่เชื่อมกับของเดิมได้ชั่วคราว ให้แนบตัวแปร Mapping ***
+let CU = App.user;
+let SUBS = App.subs;
+let STUDENTS = App.students;
+let SI = App.units;
+let EXP = App.expanded;
+let editTid = App.editTid;
+let editAssigned = App.editAssigned;
+let IGNORE_R = App.ignoreR;
+let IS_SEM_MODE = App.isSemMode;
+let TERM_DATES = App.termDates;
+let HOLIDAYS = App.holidays;
+let SCHOOL_PROFILE = App.schoolProfile;
+
+const pg = Utils.showLoading;
+const pg_ = Utils.hideLoading;
+const toast = Utils.toast;
+// =====================================================
 
 /* =====================================================
    ADMIN
