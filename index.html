@@ -1926,1565 +1926,651 @@ function logout() {
   if ($('settingsTabsWrap')) $('settingsTabsWrap').classList.remove('is-visible');
   Utils.showPage('loginPage');
 }
-
 // =====================================================
-// ฟังก์ชันของเดิมในส่วนที่เหลือ (เช่น loadTeachers, buildTable) เริ่มตรงนี้...
-// *** เพื่อให้โค้ดใหม่เชื่อมกับของเดิมได้ชั่วคราว ให้แนบตัวแปร Mapping ***
-let CU = App.user;
-let SUBS = App.subs;
-let STUDENTS = App.students;
-let SI = App.units;
-let EXP = App.expanded;
-let editTid = App.editTid;
-let editAssigned = App.editAssigned;
-let IGNORE_R = App.ignoreR;
-let IS_SEM_MODE = App.isSemMode;
-let TERM_DATES = App.termDates;
-let HOLIDAYS = App.holidays;
-let SCHOOL_PROFILE = App.schoolProfile;
-
-const pg = Utils.showLoading;
-const pg_ = Utils.hideLoading;
-const toast = Utils.toast;
+// 5. ADMIN & SUBJECTS
 // =====================================================
-
-/* =====================================================
-   ADMIN
-   ===================================================== */
 async function loadTeachers() {
-  pg('โหลดครู...');
+  Utils.showLoading('โหลดครู...');
   try {
     const ts = await api('getTeacherList');
-    document.getElementById('tTbody').innerHTML = ts.map(t => {
-      const [id, name, , cls, , subsStr = ''] = [...t, ''];
+    $('tTbody').innerHTML = ts.map(t => {
+      const[id, name, , cls, , subsStr = ''] = [...t, ''];
       if (cls === '*') return '';
-      const tags = (subsStr ? subsStr.split(',') : [])
-        .map(s => {
-          const [c, n] = s.split('_');
-          return n ? `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary me-1" style="font-size:.74rem;">${c}: ${n}</span>` : '';
-        }).join('');
-      return `
-        <tr>
-          <td><b>${name}</b><br><span class="text-muted" style="font-size:.76rem;">ประจำชั้น ${cls}</span></td>
-          <td>${tags || '<span class="text-muted" style="font-size:.78rem;">ยังไม่กำหนด</span>'}</td>
-          <td style="text-align:center;"><button class="btn-sm" onclick="openModal('${id}','${name}','${cls}','${subsStr}')">⚙️</button></td>
-        </tr>`;
+      const tags = (subsStr ? subsStr.split(',') :[]).map(s => {
+        const [c, n] = s.split('_');
+        return n ? `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary me-1" style="font-size:.74rem;">${c}: ${n}</span>` : '';
+      }).join('');
+      return `<tr>
+        <td><b>${name}</b><br><span class="text-muted" style="font-size:.76rem;">ประจำชั้น ${cls}</span></td>
+        <td>${tags || '<span class="text-muted" style="font-size:.78rem;">ยังไม่กำหนด</span>'}</td>
+        <td style="text-align:center;"><button class="btn-sm" onclick="openModal('${id}','${name}','${cls}','${subsStr}')">⚙️</button></td>
+      </tr>`;
     }).join('');
-  } catch (e) {
-    toast(e.message, 'error');
-  }
-  pg_();
+  } catch (e) { Utils.toast(e.message, 'error'); }
+  Utils.hideLoading();
 }
 
 function openModal(id, name, cls, subsStr) {
-  editTid = id;
-  editAssigned = subsStr ? subsStr.split(',') : [];
-  document.getElementById('modalName').textContent = name;
-  const sel = document.getElementById('mClassSel');
-  sel.innerHTML = ALL_CLS.map(c => `<option>${c}</option>`).join('');
-  if (ALL_CLS.includes(cls)) sel.value = cls;
-  document.getElementById('subModal').style.display = 'flex';
-  renderMCbs();
-  renderMAssigned();
+  App.editTid = id;
+  App.editAssigned = subsStr ? subsStr.split(',') :[];
+  $('modalName').textContent = name;
+  const sel = $('mClassSel');
+  sel.innerHTML = CONFIG.ALL_CLS.map(c => `<option>${c}</option>`).join('');
+  if (CONFIG.ALL_CLS.includes(cls)) sel.value = cls;
+  $('subModal').style.display = 'flex';
+  renderMCbs(); renderMAssigned();
 }
-
-function closeModal() { document.getElementById('subModal').style.display = 'none'; }
+function closeModal() { $('subModal').style.display = 'none'; }
 
 function renderMCbs() {
-  const cls = document.getElementById('mClassSel').value;
-  const subs = SUBS[cls] || [];
-  document.getElementById('mCbs').innerHTML = subs.length
-    ? subs.map(s => {
-        const v = `${cls}_${s}`;
-        return `<label class="border p-2 rounded bg-white" style="cursor:pointer;font-size:.84rem;user-select:none;">
-          <input type="checkbox" class="form-check-input me-1" value="${v}" ${editAssigned.includes(v) ? 'checked' : ''} onchange="toggleMSub(this)">${s}</label>`;
-      }).join('')
-    : '<span class="text-muted">ไม่มีรายวิชา</span>';
+  const cls = $('mClassSel').value;
+  const subs = App.subs[cls] ||[];
+  $('mCbs').innerHTML = subs.length ? subs.map(s => {
+    const v = `${cls}_${s}`;
+    return `<label class="border p-2 rounded bg-white" style="cursor:pointer;font-size:.84rem;user-select:none;">
+      <input type="checkbox" class="form-check-input me-1" value="${v}" ${App.editAssigned.includes(v) ? 'checked' : ''} onchange="toggleMSub(this)">${s}</label>`;
+  }).join('') : '<span class="text-muted">ไม่มีรายวิชา</span>';
 }
 
-function toggleMSub(cb) {
-  editAssigned = cb.checked
-    ? [...new Set([...editAssigned, cb.value])]
-    : editAssigned.filter(v => v !== cb.value);
-  renderMAssigned();
-}
-
-function removeMSub(v) {
-  editAssigned = editAssigned.filter(x => x !== v);
-  renderMCbs();
-  renderMAssigned();
-}
-
+function toggleMSub(cb) { App.editAssigned = cb.checked ? [...new Set([...App.editAssigned, cb.value])] : App.editAssigned.filter(v => v !== cb.value); renderMAssigned(); }
+function removeMSub(v) { App.editAssigned = App.editAssigned.filter(x => x !== v); renderMCbs(); renderMAssigned(); }
 function renderMAssigned() {
-  document.getElementById('mAssigned').innerHTML = editAssigned.length
-    ? editAssigned.map(s => {
-        const [c, n] = s.split('_');
-        return `<div class="badge-item">${c}: ${n || s} <button onclick="removeMSub('${s}')">×</button></div>`;
-      }).join('')
-    : '<div class="text-muted text-center mt-2" style="font-size:.8rem;">ยังไม่มีวิชา</div>';
+  $('mAssigned').innerHTML = App.editAssigned.length ? App.editAssigned.map(s => {
+    const [c, n] = s.split('_');
+    return `<div class="badge-item">${c}: ${n || s} <button onclick="removeMSub('${s}')">×</button></div>`;
+  }).join('') : '<div class="text-muted text-center mt-2" style="font-size:.8rem;">ยังไม่มีวิชา</div>';
 }
 
 async function saveModal() {
-  pg('บันทึก...');
-  try {
-    await api('saveTeacherAssignments', { teacherId: editTid, subjects: editAssigned.join(',') });
-    toast('✅ บันทึกสำเร็จ');
-    closeModal();
-    loadTeachers();
-  } catch (e) {
-    toast(e.message, 'error');
-  }
-  pg_();
+  Utils.showLoading('บันทึก...');
+  try { await api('saveTeacherAssignments', { teacherId: App.editTid, subjects: App.editAssigned.join(',') }); Utils.toast('✅ บันทึกสำเร็จ'); closeModal(); loadTeachers(); } 
+  catch (e) { Utils.toast(e.message, 'error'); }
+  Utils.hideLoading();
 }
 
 async function adminSetup() {
-  const y = document.getElementById('setupYear').value;
-  if (!y || y < 2560) return toast('ปีไม่ถูกต้อง', 'error');
+  const y = $('setupYear').value;
+  if (!y || y < 2560) return Utils.toast('ปีไม่ถูกต้อง', 'error');
   if (!confirm(`สร้างฐานข้อมูลปี ${y}?`)) return;
-  pg(`สร้างปี ${y}...`);
-  try { toast(await api('setupGradeYear', { year: y })); }
-  catch (e) { toast(e.message, 'error'); }
-  pg_();
+  Utils.showLoading(`สร้างปี ${y}...`);
+  try { Utils.toast(await api('setupGradeYear', { year: y })); } catch (e) { Utils.toast(e.message, 'error'); }
+  Utils.hideLoading();
 }
 
-/* =====================================================
-   SUBJECT DROPDOWN
-   ===================================================== */
 function updateSubjDrop() {
-  const cls = document.getElementById('gClass').value;
-  const sel = document.getElementById('gSubj');
-  sel.innerHTML = '';
-  if (CU?.isAdmin) {
-    const gS = document.getElementById('gClass');
-    if (!gS.options.length) gS.innerHTML = ALL_CLS.map(c => `<option>${c}</option>`).join('');
-    (SUBS[cls] || []).forEach(s => sel.innerHTML += `<option>${s}</option>`);
+  const cls = $('gClass').value;
+  const sel = $('gSubj'); sel.innerHTML = '';
+  if (App.user?.isAdmin) {
+    if (!$('gClass').options.length) $('gClass').innerHTML = CONFIG.ALL_CLS.map(c => `<option>${c}</option>`).join('');
+    (App.subs[cls] ||[]).forEach(s => sel.innerHTML += `<option>${s}</option>`);
   } else {
-    const p = cls + '_';
-    const f = (CU?.mySubjects || []).filter(s => s.startsWith(p)).map(s => s.replace(p, ''));
+    const f = (App.user?.mySubjects ||[]).filter(s => s.startsWith(cls + '_')).map(s => s.replace(cls + '_', ''));
     if (f.length) f.forEach(s => sel.innerHTML += `<option>${s}</option>`);
     else sel.innerHTML = '<option>-- ไม่พบวิชา --</option>';
   }
 }
 
-/* =====================================================
-   UNIT CONFIG / SCORE CONFIG
-   ===================================================== */
-function getTermTargetScore(term) { return IS_SEM_MODE ? 100 : 50; }
-function getUnits(term) { return SI[term] || []; }
-function getUnitsMax(term) { return getUnits(term).reduce((sum, unit) => sum + (Number(unit.max) || 0), 0); }
-function getExamMax(term) { return Math.max(0, getTermTargetScore(term) - getUnitsMax(term)); }
-function getUnitItemsRawMax(unit) { return (unit.items || []).reduce((sum, item) => sum + (Number(item.max) || 0), 0); }
-function getUnitRawMax(term, unitIndex) {
-  const unit = getUnits(term)[unitIndex] || {};
-  return getUnitItemsRawMax(unit);
-}
-
-function getFlatItems(term) {
-  const out = [];
-  getUnits(term).forEach((unit, unitIndex) => {
-    (unit.items || []).forEach((item, itemIndex) => {
-      out.push({ term, unitIndex, itemIndex, unitName: unit.name || `หน่วย ${unitIndex + 1}`, unitMax: Number(unit.max) || 0, itemName: item.name || `งาน ${itemIndex + 1}`, itemMax: Number(item.max) || 0 });
+// =====================================================
+// 6. SCORE MATH & LOGIC
+// =====================================================
+const ScoreLogic = {
+  getTarget: t => App.isSemMode ? 100 : 50,
+  getUnitsMax: t => (App.units[t] ||[]).reduce((s, u) => s + (Number(u.max) || 0), 0),
+  getExamMax: t => Math.max(0, ScoreLogic.getTarget(t) - ScoreLogic.getUnitsMax(t)),
+  getUnitRawMax: (t, uIdx) => ((App.units[t][uIdx] || {}).items ||[]).reduce((s, i) => s + (Number(i.max) || 0), 0),
+  getUnitOffsets: t => {
+    let off = 0;
+    return (App.units[t] ||[]).map((u, i) => { const c = (u.items ||[]).length; const obj = { unitIndex: i, start: off, count: c }; off += c; return obj; });
+  },
+  getFlatItems: t => {
+    const out = [];
+    (App.units[t] ||[]).forEach((u, ui) => (u.items ||[]).forEach((item, ii) => out.push({ term: t, unitIndex: ui, itemIndex: ii, unitName: u.name, unitMax: Number(u.max)||0, itemName: item.name, itemMax: Number(item.max)||0 })));
+    return out;
+  },
+  calcScaled: (raw, rawMax, scaledMax) => {
+    raw = Number(raw)||0; rawMax = Number(rawMax)||0; scaledMax = Number(scaledMax)||0;
+    if (rawMax <= 0 || scaledMax <= 0) return 0;
+    return Math.round((raw / rawMax) * scaledMax * 100) / 100;
+  },
+  calcKeepFromFlat: (t, flatVals) => {
+    let total = 0;
+    ScoreLogic.getUnitOffsets(t).forEach(({ unitIndex, start, count }) => {
+      const rawMax = ScoreLogic.getUnitRawMax(t, unitIndex);
+      let raw = 0;
+      for (let i = 0; i < count; i++) raw += Number(flatVals[start + i]) || 0;
+      total += ScoreLogic.calcScaled(raw, rawMax, Number(App.units[t][unitIndex].max) || 0);
     });
-  });
-  return out;
-}
+    return Math.round(total * 100) / 100;
+  },
+  syncHiddenInputs: () => {['c_t1a','c_t1e','c_t2a','c_t2e'].forEach(id => { if (!$(id)) { const i = document.createElement('input'); i.type = 'hidden'; i.id = id; document.body.appendChild(i); } });
+    $('c_t1a').value = ScoreLogic.getUnitsMax(1); $('c_t1e').value = ScoreLogic.getExamMax(1);
+    $('c_t2a').value = App.isSemMode ? 0 : ScoreLogic.getUnitsMax(2); $('c_t2e').value = App.isSemMode ? 0 : ScoreLogic.getExamMax(2);
+  }
+};
 
-function getUnitOffsets(term) {
-  const units = getUnits(term);
-  let offset = 0;
-  return units.map((unit, unitIndex) => {
-    const count = (unit.items || []).length;
-    const obj = { unitIndex, start: offset, count };
-    offset += count;
-    return obj;
-  });
-}
-
-function calcScaledScore(raw, rawMax, scaledMax) {
-  raw = Number(raw) || 0;
-  rawMax = Number(rawMax) || 0;
-  scaledMax = Number(scaledMax) || 0;
-  if (rawMax <= 0 || scaledMax <= 0) return 0;
-  return Math.round((raw / rawMax) * scaledMax * 100) / 100;
-}
-
-function calcKeepScoreFromFlat(term, flatValues) {
-  const units = getUnits(term);
-  const offsets = getUnitOffsets(term);
-  let total = 0;
-  offsets.forEach(({ unitIndex, start, count }) => {
-    const unit = units[unitIndex];
-    const rawMax = getUnitRawMax(term, unitIndex);
-    let raw = 0;
-    for (let i = 0; i < count; i++) raw += Number(flatValues[start + i]) || 0;
-    total += calcScaledScore(raw, rawMax, Number(unit.max) || 0);
-  });
-  return Math.round(total * 100) / 100;
-}
-
-function normalizeUnits(term) {
-  if (!Array.isArray(SI[term])) SI[term] = [];
-  SI[term] = SI[term].map((u, idx) => {
-    if (u && Array.isArray(u.items)) return u;
-    return {
-      name: u?.name || `หน่วยการเรียนรู้ที่ ${idx + 1}`,
-      max: Number(u?.max) || 10,
-      items: [{ name: u?.name || 'งาน 1', max: Number(u?.max) || 10 }]
-    };
-  });
-}
-
-function ensureHiddenScoreInputs() {
-  ['c_t1a','c_t1e','c_t2a','c_t2e'].forEach(id => {
-    if (!document.getElementById(id)) {
-      const inp = document.createElement('input');
-      inp.type = 'hidden'; inp.id = id; inp.value = 0;
-      document.body.appendChild(inp);
-    }
-  });
-}
-
-function syncAutoScoreToHiddenInputs() {
-  ensureHiddenScoreInputs();
-  document.getElementById('c_t1a').value = getUnitsMax(1);
-  document.getElementById('c_t1e').value = getExamMax(1);
-  document.getElementById('c_t2a').value = IS_SEM_MODE ? 0 : getUnitsMax(2);
-  document.getElementById('c_t2e').value = IS_SEM_MODE ? 0 : getExamMax(2);
+// =====================================================
+// 7. UI SETTINGS & DATA LOAD
+// =====================================================
+function normalizeUnits(t) {
+  if (!Array.isArray(App.units[t])) App.units[t] = [];
+  App.units[t] = App.units[t].map((u, idx) => (u && Array.isArray(u.items) ? u : { name: u?.name || `หน่วยที่ ${idx + 1}`, max: Number(u?.max) || 10, items:[{ name: u?.name || 'งาน 1', max: Number(u?.max) || 10 }] }));
 }
 
 function updateAutoScoreDisplay() {
-  const t1Keep = getUnitsMax(1);
-  const t1Exam = Math.max(0, getTermTargetScore(1) - t1Keep);
-  const el1k = document.getElementById('show_t1_keep');
-  const el1e = document.getElementById('show_t1_exam');
-  if (el1k) el1k.textContent = t1Keep;
-  if (el1e) el1e.textContent = t1Exam;
-  const sum1 = document.getElementById('sum_t1_units');
-  if (sum1) sum1.textContent = t1Keep;
-
-  if (!IS_SEM_MODE) {
-    const t2Keep = getUnitsMax(2);
-    const t2Exam = Math.max(0, getTermTargetScore(2) - t2Keep);
-    const el2k = document.getElementById('show_t2_keep');
-    const el2e = document.getElementById('show_t2_exam');
-    if (el2k) el2k.textContent = t2Keep;
-    if (el2e) el2e.textContent = t2Exam;
-    const sum2 = document.getElementById('sum_t2_units');
-    if (sum2) sum2.textContent = t2Keep;
-  }
+  const setScoreTxt = (t) => {
+    const k = ScoreLogic.getUnitsMax(t), e = ScoreLogic.getExamMax(t);
+    if ($(`show_t${t}_keep`)) $(`show_t${t}_keep`).textContent = k;
+    if ($(`show_t${t}_exam`)) $(`show_t${t}_exam`).textContent = e;
+    if ($(`sum_t${t}_units`)) $(`sum_t${t}_units`).textContent = k;
+  };
+  setScoreTxt(1); if (!App.isSemMode) setScoreTxt(2);
 }
 
 function refreshUnitPanelLabels() {
-  const sum1 = document.getElementById('sum_t1_units');
-  const sum2 = document.getElementById('sum_t2_units');
-  const t2Block = document.getElementById('t2AutoBlock');
-  const t2Tab = document.getElementById('tabTerm2Btn');
-
-  if (sum1 && sum1.parentElement) {
-    const maxTxt = IS_SEM_MODE ? '100' : '50';
-    sum1.parentElement.innerHTML = `<span>คะแนนรวมทุกหน่วย เทอม 1:</span><strong id="sum_t1_units">${getUnitsMax(1)}</strong><span>/</span><span class="res">${maxTxt}</span>`;
-  }
-  if (sum2 && sum2.parentElement) {
-    sum2.parentElement.innerHTML = `<span>คะแนนรวมทุกหน่วย เทอม 2:</span><strong id="sum_t2_units">${getUnitsMax(2)}</strong><span>/</span><span class="res">50</span>`;
-  }
-  if (IS_SEM_MODE) {
-    if (t2Block) t2Block.style.display = 'none';
-    if (t2Tab) t2Tab.style.display = 'none';
-  } else {
-    if (t2Block) t2Block.style.display = '';
-    if (t2Tab) t2Tab.style.display = '';
-  }
+  if ($('sum_t1_units')?.parentElement) $('sum_t1_units').parentElement.innerHTML = `<span>คะแนนรวมทุกหน่วย เทอม 1:</span><strong id="sum_t1_units">${ScoreLogic.getUnitsMax(1)}</strong><span>/</span><span class="res">${App.isSemMode ? '100' : '50'}</span>`;
+  if ($('sum_t2_units')?.parentElement) $('sum_t2_units').parentElement.innerHTML = `<span>คะแนนรวมทุกหน่วย เทอม 2:</span><strong id="sum_t2_units">${ScoreLogic.getUnitsMax(2)}</strong><span>/</span><span class="res">50</span>`;
+  if ($('t2AutoBlock')) $('t2AutoBlock').style.display = App.isSemMode ? 'none' : 'flex';
+  if ($('tabTerm2Btn')) $('tabTerm2Btn').style.display = App.isSemMode ? 'none' : 'block';
   updateAutoScoreDisplay();
 }
 
-function onCfg() { updateAutoScoreDisplay(); }
-
 function switchTerm(t, btn) {
-  const tabWrap = btn.closest('.ttabs');
-  if (tabWrap) tabWrap.querySelectorAll('.ttab').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
-  document.getElementById('subPanel_1').style.display = t === 1 ? '' : 'none';
-  document.getElementById('subPanel_2').style.display = t === 2 ? '' : 'none';
+  if (btn?.closest('.ttabs')) btn.closest('.ttabs').querySelectorAll('.ttab').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  $('subPanel_1').style.display = t === 1 ? '' : 'none'; $('subPanel_2').style.display = t === 2 ? '' : 'none';
 }
 
-function addSub(term) {
-  SI[term].push({ name: `หน่วยการเรียนรู้ที่ ${SI[term].length + 1}`, max: 10, items: [{ name: "งาน 1", max: 10 }] });
-  renderSubList(term);
-}
+function addSub(t) { App.units[t].push({ name: `หน่วยที่ ${App.units[t].length + 1}`, max: 10, items: [{ name: "งาน 1", max: 10 }] }); renderSubList(t); }
+function rmSub(t, ui) { if (confirm(`ลบ "${App.units[t][ui].name}" ?`)) { App.units[t].splice(ui, 1); renderSubList(t); } }
+function addSubItem(t, ui) { App.units[t][ui].items.push({ name: `งาน ${App.units[t][ui].items.length + 1}`, max: 10 }); renderSubList(t); }
+function rmSubItem(t, ui, ii) { if (confirm('ลบงานนี้?')) { App.units[t][ui].items.splice(ii, 1); renderSubList(t); } }
 
-function rmSub(term, unitIndex) {
-  if (!confirm(`ยืนยันการลบ "${SI[term][unitIndex].name}" ?`)) return;
-  SI[term].splice(unitIndex, 1);
-  renderSubList(term);
-}
-
-function addSubItem(term, unitIndex) {
-  SI[term][unitIndex].items.push({ name: `งาน ${SI[term][unitIndex].items.length + 1}`, max: 10 });
-  renderSubList(term);
-}
-
-function rmSubItem(term, unitIndex, itemIndex) {
-  if (!confirm('ยืนยันการลบงานนี้ใช่หรือไม่?')) return;
-  SI[term][unitIndex].items.splice(itemIndex, 1);
-  renderSubList(term);
-}
-
-function renderSubList(term) {
-  const wrap = document.getElementById(`subList_${term}`);
-  if (!wrap) return;
-  const units = SI[term] || [];
-  if (!units.length) {
-    wrap.innerHTML = `<div class="text-muted text-center py-3" style="background:#fff;border:1px dashed #cbd5e1;border-radius:10px;">ยังไม่มีหน่วยการเรียนรู้</div>`;
-    updateAutoScoreDisplay();
-    return;
-  }
-  wrap.innerHTML = units.map((unit, ui) => {
-    const rawMax = getUnitItemsRawMax(unit);
-    return `
-      <div class="sub-row" style="display:block;padding:12px;border:1.5px solid #ddd6fe;background:#fff;border-radius:12px;">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-          <span class="sub-n">${ui + 1}.</span>
-          <input class="sub-name" type="text" value="${unit.name || ''}" placeholder="ชื่อหน่วยการเรียนรู้" onchange="SI[${term}][${ui}].name=this.value">
-          <span class="sub-max-lbl">คะแนนหน่วย</span>
-          <input class="sub-max" type="number" min="1" value="${Number(unit.max) || 0}" onchange="SI[${term}][${ui}].max=Number(this.value)||0;updateAutoScoreDisplay();renderSubList(${term});">
-          <button class="btn-rm" onclick="rmSub(${term},${ui})">✕</button>
-        </div>
-        <div style="margin-left:24px;display:flex;flex-direction:column;gap:7px;">
-          ${(unit.items || []).map((item, ii) => `
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <input class="sub-name" type="text" value="${item.name || ''}" placeholder="ชื่องาน / กิจกรรม" onchange="SI[${term}][${ui}].items[${ii}].name=this.value">
-              <span class="sub-max-lbl">เต็ม</span>
-              <input class="sub-max" type="number" min="1" value="${Number(item.max) || 0}" onchange="SI[${term}][${ui}].items[${ii}].max=Number(this.value)||0;renderSubList(${term});">
-              <button class="btn-rm" onclick="rmSubItem(${term},${ui},${ii})">✕</button>
-            </div>
-          `).join('')}
-          <button type="button" class="btn-add-sub" onclick="addSubItem(${term},${ui})">＋ เพิ่มงานในหน่วยนี้</button>
-        </div>
-        <div class="raw-preview" style="margin-top:10px;">
-          <span>คะแนนดิบรวมของหน่วย:</span><strong>${rawMax}</strong>
-          <span>| คะแนนหน่วย:</span><strong class="res">${Number(unit.max) || 0}</strong>
-        </div>
-      </div>`;
+function renderSubList(t) {
+  const wrap = $(`subList_${t}`); if (!wrap) return;
+  if (!App.units[t].length) { wrap.innerHTML = `<div class="text-muted text-center py-3 border rounded">ยังไม่มีหน่วยการเรียนรู้</div>`; updateAutoScoreDisplay(); return; }
+  
+  wrap.innerHTML = App.units[t].map((unit, ui) => {
+    return `<div class="sub-row mb-2 p-3 border rounded bg-white" style="display:block;">
+      <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+        <span class="sub-n">${ui + 1}.</span>
+        <input class="sub-name" type="text" value="${unit.name || ''}" placeholder="ชื่อหน่วย" onchange="App.units[${t}][${ui}].name=this.value">
+        <span class="sub-max-lbl">คะแนนเต็ม</span>
+        <input class="sub-max" type="number" min="1" value="${Number(unit.max)||0}" onchange="App.units[${t}][${ui}].max=Number(this.value)||0;updateAutoScoreDisplay();renderSubList(${t});">
+        <button class="btn-rm" onclick="rmSub(${t},${ui})">✕</button>
+      </div>
+      <div class="ms-4 d-flex flex-column gap-2">
+        ${(unit.items ||[]).map((item, ii) => `<div class="d-flex align-items-center gap-2 flex-wrap">
+          <input class="sub-name" type="text" value="${item.name || ''}" placeholder="ชื่องาน" onchange="App.units[${t}][${ui}].items[${ii}].name=this.value">
+          <span class="sub-max-lbl">เต็ม</span>
+          <input class="sub-max" type="number" min="1" value="${Number(item.max)||0}" onchange="App.units[${t}][${ui}].items[${ii}].max=Number(this.value)||0;renderSubList(${t});">
+          <button class="btn-rm" onclick="rmSubItem(${t},${ui},${ii})">✕</button>
+        </div>`).join('')}
+        <button type="button" class="btn-add-sub" onclick="addSubItem(${t},${ui})">＋ เพิ่มงาน</button>
+      </div>
+      <div class="raw-preview mt-2">คะแนนดิบรวมของงาน: <strong>${ScoreLogic.getUnitRawMax(t, ui)}</strong> | คะแนนที่เก็บเข้าหน่วย: <strong class="res">${Number(unit.max)||0}</strong></div>
+    </div>`;
   }).join('');
   updateAutoScoreDisplay();
 }
 
-/* =====================================================
-   TOGGLE TABLE COLUMNS
-   ===================================================== */
-function toggleCols(t) {
-  EXP[t] = !EXP[t];
-  document.getElementById('gtbl').classList.toggle(`t${t}-collapsed`, !EXP[t]);
-  const btn = document.getElementById(`tbtn${t}`);
-  if (btn) btn.innerHTML = `<span class="arr">${EXP[t] ? '▼' : '▶'}</span> ${EXP[t] ? 'ยุบ' : 'ขยาย'}`;
-}
+function toggleCols(t) { App.expanded[t] = !App.expanded[t]; $('gtbl').classList.toggle(`t${t}-collapsed`, !App.expanded[t]); if ($(`tbtn${t}`)) $(`tbtn${t}`).innerHTML = `<span class="arr">${App.expanded[t] ? '▼' : '▶'}</span> ${App.expanded[t] ? 'ยุบ' : 'ขยาย'}`; }
+function toggleIgnoreR() { App.ignoreR = $('toggleR').checked; $$('#gtBody tr[data-sid]').forEach(tr => recalcTots(tr)); }
 
-function setCourseInfoForm(courseInfo = {}, currentSubject = '') {
-  document.getElementById('ci_learning_area').value = courseInfo.learningArea || '';
-  document.getElementById('ci_name').value = courseInfo.name || currentSubject || '';
-  document.getElementById('ci_code').value = courseInfo.code || '';
-  document.getElementById('ci_type').value = courseInfo.type || 'รายวิชาพื้นฐาน';
-  document.getElementById('ci_credit').value = courseInfo.credit || '';
-  document.getElementById('ci_teacher_name').value = courseInfo.teacherName || '';
-  document.getElementById('ci_group_head_name').value = courseInfo.groupHeadName || '';
-  document.getElementById('ci_description').value = courseInfo.description || '';
-  document.getElementById('ci_indicators').value = courseInfo.indicators || '';
-  const sch = courseInfo.schedule || {};
-  document.getElementById('sch_mon').value = sch.mon || 0;
-  document.getElementById('sch_tue').value = sch.tue || 0;
-  document.getElementById('sch_wed').value = sch.wed || 0;
-  document.getElementById('sch_thu').value = sch.thu || 0;
-  document.getElementById('sch_fri').value = sch.fri || 0;
-  document.getElementById('ci_manual_adjust').value = sch.manualAdjust || 0;
-  document.getElementById('ci_total_hours').textContent = sch.totalHours || 0;
-}
-
-function getCourseInfoForm() {
-  return {
-    learningArea: document.getElementById('ci_learning_area').value || '',
-    name: document.getElementById('ci_name').value || '',
-    code: document.getElementById('ci_code').value || '',
-    type: document.getElementById('ci_type').value || 'รายวิชาพื้นฐาน',
-    credit: document.getElementById('ci_credit').value || '',
-    teacherName: document.getElementById('ci_teacher_name').value || '',
-    groupHeadName: document.getElementById('ci_group_head_name').value || '',
-    description: document.getElementById('ci_description').value || '',
-    indicators: document.getElementById('ci_indicators').value || '',
-    schedule: {
-      mon: +document.getElementById('sch_mon').value || 0,
-      tue: +document.getElementById('sch_tue').value || 0,
-      wed: +document.getElementById('sch_wed').value || 0,
-      thu: +document.getElementById('sch_thu').value || 0,
-      fri: +document.getElementById('sch_fri').value || 0,
-      manualAdjust: +document.getElementById('ci_manual_adjust').value || 0,
-      totalHours: +document.getElementById('ci_total_hours').textContent || 0
-    }
-  };
-}
-
-function setSchoolProfileForm(profile = {}) {
-  SCHOOL_PROFILE = {
-    school_name: profile.school_name || '',
-    director_name: profile.director_name || '',
-    director_position: profile.director_position || 'ผู้อำนวยการโรงเรียน',
-    academic_head_name: profile.academic_head_name || '',
-    academic_head_position: profile.academic_head_position || 'หัวหน้าวิชาการ'
-  };
-  document.getElementById('sp_school_name').value = SCHOOL_PROFILE.school_name;
-  document.getElementById('sp_director_name').value = SCHOOL_PROFILE.director_name;
-  document.getElementById('sp_director_position').value = SCHOOL_PROFILE.director_position;
-  document.getElementById('sp_academic_head_name').value = SCHOOL_PROFILE.academic_head_name;
-  document.getElementById('sp_academic_head_position').value = SCHOOL_PROFILE.academic_head_position;
-}
-
-function getSchoolProfileForm() {
-  return {
-    school_name: document.getElementById('sp_school_name').value || '',
-    director_name: document.getElementById('sp_director_name').value || '',
-    director_position: document.getElementById('sp_director_position').value || 'ผู้อำนวยการโรงเรียน',
-    academic_head_name: document.getElementById('sp_academic_head_name').value || '',
-    academic_head_position: document.getElementById('sp_academic_head_position').value || 'หัวหน้าวิชาการ'
-  };
-}
-
-/* =====================================================
-   LOAD GRADES
-   ===================================================== */
 async function loadGrades() {
-  const year = document.getElementById('gYear').value;
-  const cls = document.getElementById('gClass').value;
-  const subj = document.getElementById('gSubj').value;
+  const year = $('gYear').value, cls = $('gClass').value, subj = $('gSubj').value;
+  if (!subj || subj === "-- ไม่พบวิชา --") return Utils.toast('กรุณาเลือกวิชาที่ถูกต้อง', 'error');
 
-  if (!subj || subj === "-- ไม่พบวิชา --") return toast('กรุณาเลือกวิชาที่ถูกต้อง', 'error');
-
-  IS_SEM_MODE = cls.includes("เทอม");
-  document.getElementById('lblClass').textContent = cls;
-  document.getElementById('lblSubj').textContent = subj;
-
-  pg('กำลังโหลดข้อมูลและสถิติมาเรียน...');
-  document.getElementById('toggleRWrapper').style.display = IS_SEM_MODE ? 'flex' : 'none';
-  document.getElementById('toggleR').checked = false;
-  IGNORE_R = false;
+  App.isSemMode = cls.includes("เทอม");
+  $('lblClass').textContent = cls; $('lblSubj').textContent = subj;
+  Utils.showLoading('กำลังโหลดข้อมูล...');
+  $('toggleRWrapper').style.display = App.isSemMode ? 'flex' : 'none'; $('toggleR').checked = false; App.ignoreR = false;
 
   try {
     const res = await api('getGrades', { year, classroom: cls, subject: subj });
-    const config = res.config || {};
+    App.termDates = res.termDates || {}; App.holidays = res.holidays ||[];
+    ScoreLogic.syncHiddenInputs();
 
-    TERM_DATES = res.termDates || {};
-    HOLIDAYS = res.holidays || [];
+    setCourseInfoForm(res.config?.courseInfo || {}, subj);
+    try { setSchoolProfileForm(await api('getSchoolProfile', {}) || {}); } catch(e) { setSchoolProfileForm({}); }
 
-    document.getElementById('c_t1a').value = config.t1_acc || 35;
-    document.getElementById('c_t1e').value = config.t1_exam || 15;
-    document.getElementById('c_t2a').value = config.t2_acc || 35;
-    document.getElementById('c_t2e').value = config.t2_exam || 15;
-
-    setCourseInfoForm(config.courseInfo || {}, subj);
-    try {
-      const schoolProfile = await api('getSchoolProfile', {});
-      setSchoolProfileForm(schoolProfile || {});
-    } catch (e) {
-      console.warn('โหลด School_Profile ไม่สำเร็จ:', e.message);
-      setSchoolProfileForm({});
-    }
-
-    const t2Tab = document.querySelector('.ttab[onclick*="switchTerm(2"]');
-    const t2Block = document.getElementById('t2AutoBlock');
-    const t1Title = document.querySelector('.cfg-ttl[style*="color:#1d4ed8"]');
-    const btnAddT1 = document.querySelector('.btn-add-sub[onclick="addSub(1)"]');
-
-    if (IS_SEM_MODE) {
-      if (t2Tab) t2Tab.style.display = 'none';
-      if (t2Block) t2Block.style.display = 'none';
-      if (t1Title) t1Title.textContent = "สัดส่วนคะแนน (เก็บ/สอบ)";
+    if (App.isSemMode) {
+      if ($('tabTerm2Btn')) $('tabTerm2Btn').style.display = 'none';
+      const btnAddT1 = document.querySelector('.btn-add-sub[onclick="addSub(1)"]');
       if (btnAddT1) btnAddT1.textContent = "＋ เพิ่มหัวข้อคะแนนย่อย";
       const t1TabBtn = document.querySelector('.ttab[onclick*="switchTerm(1"]');
       if (t1TabBtn) switchTerm(1, t1TabBtn);
-      SI[2] = [];
-    } else {
-      if (t2Tab) t2Tab.style.display = 'block';
-      if (t2Block) t2Block.style.display = 'flex';
-      if (t1Title) t1Title.textContent = "เทอม 1 (เก็บ/สอบ)";
-      if (btnAddT1) btnAddT1.textContent = "＋ เพิ่มหัวข้อ เทอม 1";
+      App.units[2] =[];
     }
+    App.units[1] = res.config?.units?.t1 || res.config?.subItems?.t1 || [];
+    if (!App.isSemMode) App.units[2] = res.config?.units?.t2 || res.config?.subItems?.t2 ||[];
 
-    SI[1] = config.units?.t1 || config.subItems?.t1 || [];
-    SI[2] = !IS_SEM_MODE ? (config.units?.t2 || config.subItems?.t2 || []) : [];
+    normalizeUnits(1); normalizeUnits(2); renderSubList(1); if (!App.isSemMode) renderSubList(2);
+    refreshUnitPanelLabels(); updateAutoScoreDisplay();
 
-    normalizeUnits(1);
-    normalizeUnits(2);
-
-    renderSubList(1);
-    if (!IS_SEM_MODE) renderSubList(2);
-    refreshUnitPanelLabels();
-    onCfg();
-
-    STUDENTS = res.students || [];
-    EXP = { 1: true, 2: true };
-
-    document.getElementById('gradePanel').style.display = '';
+    App.students = res.students ||[]; App.expanded = { 1: true, 2: true };
+    $('gradePanel').style.display = '';
     buildTable();
-    renderHolisticTable(STUDENTS, 'assContainer', 'assBody', 'subject');
-    renderHolisticTable(STUDENTS, 'hrAssContainer', 'hrAssBody', 'homeroom');
+    renderHolisticTable(App.students, 'assContainer', 'assBody', 'subject');
+    renderHolisticTable(App.students, 'hrAssContainer', 'hrAssBody', 'homeroom');
 
-    const scoreArea = document.getElementById('scoreMainArea');
-    const settingsArea = document.getElementById('settingsContentArea');
-    if (scoreArea) scoreArea.style.display = 'block';
-    if (settingsArea) settingsArea.style.display = 'none';
-
-    document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('#settingsTabs .settings-tab').forEach(t => t.classList.remove('active'));
-    const scoreTab = document.getElementById('tabScoreMain');
-    if (scoreTab) scoreTab.classList.add('active');
-
-    toast(`โหลดข้อมูลสำเร็จ: โหมด${IS_SEM_MODE ? 'มัธยม (รายภาคเรียน)' : 'ประถม (รายปี)'}`);
-  } catch (e) {
-    console.error(e);
-    toast('เกิดข้อผิดพลาด: ' + e.message, 'error');
-    document.getElementById('gradePanel').style.display = 'none';
-  }
-  pg_();
+    showScoreMain($('tabScoreMain'));
+    Utils.toast(`โหลดข้อมูลสำเร็จ: โหมด${App.isSemMode ? 'มัธยม (รายภาคเรียน)' : 'ประถม (รายปี)'}`);
+  } catch (e) { Utils.toast('เกิดข้อผิดพลาด: ' + e.message, 'error'); $('gradePanel').style.display = 'none'; }
+  Utils.hideLoading();
 }
 
-/* =====================================================
-   BUILD TABLE
-   ===================================================== */
-function buildTable() {
-  buildHead();
-  buildBody();
-  document.getElementById('gtbl').classList.remove('t1-collapsed', 't2-collapsed');
-  EXP = { 1: true, 2: true };
-}
+// =====================================================
+// 8. TABLE GENERATOR
+// =====================================================
+function buildTable() { buildHead(); buildBody(); $('gtbl').classList.remove('t1-collapsed', 't2-collapsed'); App.expanded = { 1: true, 2: true }; }
 
-/* =====================================================
-   BUILD HEAD — เพิ่มคอลัมน์รวมเก็บ รวมสอบ
-   ===================================================== */
 function buildHead() {
-  syncAutoScoreToHiddenInputs();
+  ScoreLogic.syncHiddenInputs();
+  let r1 = `<th rowspan="3" class="th-base s-c0" style="width:36px;">ที่</th><th rowspan="3" class="th-base s-c1" style="width:72px;">รหัส</th><th rowspan="3" class="th-base s-c2" style="text-align:left;min-width:145px;">ชื่อ-นามสกุล</th><th rowspan="3" class="th-att" style="width:115px;">มาเรียน</th>`;
+  let r2 = '', r3 = '';
 
-  const t1Keep = getUnitsMax(1);
-  const t1Exam = getExamMax(1);
-  const t2Keep = getUnitsMax(2);
-  const t2Exam = getExamMax(2);
-  const t1Flat = getFlatItems(1);
-  const t2Flat = getFlatItems(2);
-
-  // ---- แถวที่ 1 ----
-  let r1 = `
-    <th rowspan="3" class="th-base s-c0" style="width:36px;">ที่</th>
-    <th rowspan="3" class="th-base s-c1" style="width:72px;">รหัส</th>
-    <th rowspan="3" class="th-base s-c2" style="text-align:left;min-width:145px;">ชื่อ-นามสกุล</th>
-    <th rowspan="3" class="th-att" style="width:115px;">มาเรียน</th>`;
-
-  if (t1Flat.length > 0) {
-    r1 += `<th colspan="${t1Flat.length + getUnits(1).length}" class="th-t1s sc1">📝 หน่วย / งาน เทอม 1</th>`;
-  }
-
-  r1 += `
-    <th rowspan="3" class="th-t1sc" style="width:88px;">
-      <div style="margin-bottom:3px;">${IS_SEM_MODE ? 'คะแนนเก็บ' : 'เก็บ ท.1'}<br><small>(${t1Keep})</small></div>
-      ${t1Flat.length > 0 ? `<button class="tbtn" id="tbtn1" onclick="toggleCols(1)"><span class="arr">▼</span> ยุบ</button>` : ''}
-    </th>
-    <th rowspan="3" class="th-t1e" style="width:72px;">${IS_SEM_MODE ? 'สอบ' : 'สอบ ท.1'}<br><small>(${t1Exam})</small></th>
-    <th rowspan="3" class="th-t1t" style="width:72px;">รวม<br><small>(${IS_SEM_MODE ? '100' : '50'})</small></th>`;
-
-  if (IS_SEM_MODE) {
-    r1 += `<th rowspan="3" class="th-base" style="width:65px;background:#475569;color:#fff;">สถานะ</th>`;
-  }
-
-  if (!IS_SEM_MODE) {
-    if (t2Flat.length > 0) {
-      r1 += `<th colspan="${t2Flat.length + getUnits(2).length}" class="th-t2s sc2">📝 หน่วย / งาน เทอม 2</th>`;
-    }
-
-    r1 += `
-      <th rowspan="3" class="th-t2sc" style="width:88px;">
-        <div style="margin-bottom:3px;">เก็บ ท.2<br><small>(${t2Keep})</small></div>
-        ${t2Flat.length > 0 ? `<button class="tbtn" id="tbtn2" onclick="toggleCols(2)"><span class="arr">▼</span> ยุบ</button>` : ''}
-      </th>
-      <th rowspan="3" class="th-t2e" style="width:72px;">สอบ ท.2<br><small>(${t2Exam})</small></th>
-      <th rowspan="3" class="th-t2t" style="width:72px;">รวม ท.2<br><small>(50)</small></th>`;
-
-    /* ✅ คอลัมน์ใหม่: รวมคะแนนเก็บ ท.1+ท.2 และ รวมคะแนนสอบ ท.1+ท.2 */
-    r1 += `
-      <th rowspan="3" class="th-sum-keep" style="width:80px;">รวมเก็บ<br><small>(ท.1+ท.2)</small><br><small style="opacity:.8;">(${t1Keep + t2Keep})</small></th>
-      <th rowspan="3" class="th-sum-exam" style="width:80px;">รวมสอบ<br><small>(ท.1+ท.2)</small><br><small style="opacity:.8;">(${t1Exam + t2Exam})</small></th>`;
-
-    r1 += `<th rowspan="3" class="th-grand" style="width:74px;">รวม<br>ทั้งปี</th>`;
-  }
-
-  r1 += `<th rowspan="3" style="width:65px;background:#4f46e5;color:#fff;font-size:15px;border-right:1px solid rgba(255,255,255,.12);vertical-align:middle;">เกรด</th>`;
-
-  // ---- แถวที่ 2 และ 3 ----
-  let r2 = '';
-  let r3 = '';
-
-  getUnits(1).forEach(unit => {
-    const itemCount = (unit.items || []).length;
-    if (itemCount > 0) {
-      r2 += `<th colspan="${itemCount + 1}" class="th-t1si sc1">${unit.name}<br><small>หน่วย ${Number(unit.max) || 0} คะแนน</small></th>`;
-      (unit.items || []).forEach(item => {
-        r3 += `<th class="th-t1raw sc1">${item.name}<br><small>(${Number(item.max) || 0})</small></th>`;
-      });
-      r3 += `<th class="th-t1sc sc1">รวมหน่วย</th>`;
-    }
-  });
-
-  if (!IS_SEM_MODE) {
-    getUnits(2).forEach(unit => {
-      const itemCount = (unit.items || []).length;
-      if (itemCount > 0) {
-        r2 += `<th colspan="${itemCount + 1}" class="th-t2si sc2">${unit.name}<br><small>หน่วย ${Number(unit.max) || 0} คะแนน</small></th>`;
-        (unit.items || []).forEach(item => {
-          r3 += `<th class="th-t2raw sc2">${item.name}<br><small>(${Number(item.max) || 0})</small></th>`;
-        });
-        r3 += `<th class="th-t2sc sc2">รวมหน่วย</th>`;
+  const addTermHeaders = (t) => {
+    const flat = ScoreLogic.getFlatItems(t), units = App.units[t] ||[], target = ScoreLogic.getTarget(t);
+    const lblT = App.isSemMode ? '' : ` ท.${t}`;
+    if (flat.length > 0) r1 += `<th colspan="${flat.length + units.length}" class="th-t${t}s sc${t}">📝 หน่วย / งาน เทอม ${t}</th>`;
+    r1 += `<th rowspan="3" class="th-t${t}sc" style="width:88px;"><div style="margin-bottom:3px;">${App.isSemMode ? 'คะแนนเก็บ' : 'เก็บ'+lblT}<br><small>(${ScoreLogic.getUnitsMax(t)})</small></div>${flat.length > 0 ? `<button class="tbtn" id="tbtn${t}" onclick="toggleCols(${t})"><span class="arr">▼</span> ยุบ</button>` : ''}</th>
+           <th rowspan="3" class="th-t${t}e" style="width:72px;">${App.isSemMode ? 'สอบ' : 'สอบ'+lblT}<br><small>(${ScoreLogic.getExamMax(t)})</small></th>
+           <th rowspan="3" class="th-t${t}t" style="width:72px;">รวม${lblT}<br><small>(${target})</small></th>`;
+    
+    units.forEach(u => {
+      const c = (u.items ||[]).length;
+      if (c > 0) {
+        r2 += `<th colspan="${c + 1}" class="th-t${t}si sc${t}">${u.name}<br><small>หน่วย ${Number(u.max)||0} คะแนน</small></th>`;
+        (u.items ||[]).forEach(item => r3 += `<th class="th-t${t}raw sc${t}">${item.name}<br><small>(${Number(item.max)||0})</small></th>`);
+        r3 += `<th class="th-t${t}sc sc${t}">รวมหน่วย</th>`;
       }
     });
-  }
+  };
 
-  document.getElementById('gtHead').innerHTML = `<tr>${r1}</tr><tr>${r2}</tr><tr>${r3}</tr>`;
+  addTermHeaders(1);
+  if (App.isSemMode) r1 += `<th rowspan="3" class="th-base" style="width:65px;background:#475569;color:#fff;">สถานะ</th>`;
+  else {
+    addTermHeaders(2);
+    r1 += `<th rowspan="3" class="th-sum-keep" style="width:80px;">รวมเก็บ<br><small>(ท.1+ท.2)</small><br><small style="opacity:.8;">(${ScoreLogic.getUnitsMax(1)+ScoreLogic.getUnitsMax(2)})</small></th>
+           <th rowspan="3" class="th-sum-exam" style="width:80px;">รวมสอบ<br><small>(ท.1+ท.2)</small><br><small style="opacity:.8;">(${ScoreLogic.getExamMax(1)+ScoreLogic.getExamMax(2)})</small></th>
+           <th rowspan="3" class="th-grand" style="width:74px;">รวม<br>ทั้งปี</th>`;
+  }
+  r1 += `<th rowspan="3" style="width:65px;background:#4f46e5;color:#fff;font-size:15px;border-right:1px solid rgba(255,255,255,.12);vertical-align:middle;">เกรด</th>`;
+  $('gtHead').innerHTML = `<tr>${r1}</tr><tr>${r2}</tr><tr>${r3}</tr>`;
 }
 
-/* =====================================================
-   BUILD BODY — เพิ่ม cell รวมเก็บ รวมสอบ
-   ===================================================== */
 function buildBody() {
-  syncAutoScoreToHiddenInputs();
+  ScoreLogic.syncHiddenInputs();
+  if (!App.students.length) return $('gtBody').innerHTML = `<tr><td colspan="50" class="text-center py-4 text-muted">ไม่พบข้อมูลผู้เรียน</td></tr>`;
 
-  const t1ExamMax = getExamMax(1);
-  const t2ExamMax = getExamMax(2);
-
-  if (!STUDENTS.length) {
-    document.getElementById('gtBody').innerHTML =
-      `<tr><td colspan="50" class="text-center py-4 text-muted">ไม่พบข้อมูลผู้เรียน</td></tr>`;
-    return;
-  }
-
-  const rows = STUDENTS.map((s, idx) => {
-    const g = s.grades || {};
-    const st = s.stats || {};
-    const t1FlatVals = Array.isArray(g.t1_sub) ? g.t1_sub : [];
-    const t2FlatVals = Array.isArray(g.t2_sub) ? g.t2_sub : [];
-    const t1Offsets = getUnitOffsets(1);
-    const t2Offsets = getUnitOffsets(2);
-
-    let t1Cells = '';
-    t1Offsets.forEach(({ unitIndex, start, count }) => {
-      const unit = getUnits(1)[unitIndex];
-      const rawMax = getUnitRawMax(1, unitIndex);
+  const buildTermCells = (t, s) => {
+    const flatVals = Array.isArray(s.grades?.[`t${t}_sub`]) ? s.grades[`t${t}_sub`] :[];
+    let cells = '';
+    ScoreLogic.getUnitOffsets(t).forEach(({ unitIndex, start, count }) => {
+      const unit = App.units[t][unitIndex];
       let raw = 0;
       for (let i = 0; i < count; i++) {
-        const item = (unit.items || [])[i];
-        const val = t1FlatVals[start + i] ?? '';
+        const val = flatVals[start + i] ?? '';
         raw += Number(val) || 0;
-        t1Cells += `
-          <td class="td-sub1 sc1">
-            <input type="number" class="sinput sub1" min="0" max="${Number(item.max) || 0}"
-              value="${val}" data-term="1" data-unit="${unitIndex}" data-item="${i}"
-              oninput="calcSub(this,1)">
-          </td>`;
+        cells += `<td class="td-sub${t} sc${t}"><input type="number" class="sinput sub${t} ${t===2?'t2':''}" min="0" max="${Number((unit.items||[])[i]?.max)||0}" value="${val}" data-term="${t}" data-unit="${unitIndex}" data-item="${i}" oninput="calcSub(this, ${t})"></td>`;
       }
-      const scaled = calcScaledScore(raw, rawMax, Number(unit.max) || 0);
-      t1Cells += `<td class="td-sc1 sc1 unit-total-1" data-unit="${unitIndex}">${scaled || '-'}</td>`;
+      cells += `<td class="td-sc${t} sc${t} unit-total-${t}" data-unit="${unitIndex}">${ScoreLogic.calcScaled(raw, ScoreLogic.getUnitRawMax(t, unitIndex), Number(unit.max)||0) || '-'}</td>`;
     });
+    const keep = ScoreLogic.calcKeepFromFlat(t, flatVals), exam = Number(s.grades?.[`t${t}_exam`]) || 0, total = keep + exam;
+    cells += `<td class="td-sc${t}"><span class="t${t}sc">${keep || '-'}</span></td>
+              <td><input type="number" class="sinput ${t===2?'t2':''} s-t${t}e" min="0" max="${ScoreLogic.getExamMax(t)}" value="${s.grades?.[`t${t}_exam`] ?? ''}" oninput="calcExam(this)"></td>
+              <td><span class="tbadge ${total === 0 && !App.isSemMode ? 'nil' : (total >= (App.isSemMode?50:25) ? 'ok' : 'fail')} t${t}tot">${total || '-'}</span></td>`;
+    return { cells, keep, exam, total };
+  };
 
-    const t1Keep = calcKeepScoreFromFlat(1, t1FlatVals);
-    const t1Exam = Number(g.t1_exam) || 0;
-    const t1Total = t1Keep + t1Exam;
+  $('gtBody').innerHTML = App.students.map((s, idx) => {
+    const st = s.stats || {}, t1 = buildTermCells(1, s);
+    let html = `<tr data-sid="${s.studentId}">
+      <td class="s-c0">${idx + 1}</td><td class="s-c1">${s.studentId}</td>
+      <td class="s-c2"><div class="d-flex justify-content-between align-items-center gap-1"><span>${s.name}</span><div class="d-flex gap-1"><button class="btn-sm" style="padding:2px 7px;font-size:0.72rem;background:#ede9fe;color:#6d28d9;border:1px solid #c4b5fd;" onclick="printRowPDF('${s.studentId}','term1')">T1</button><button class="btn-sm" style="padding:2px 8px;font-size:0.75rem;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;" onclick="printRowPDF('${s.studentId}','year')">🖨️</button></div></div></td>
+      <td><span class="sp p">ม ${st.present || 0}</span> <span class="sp a">ข ${st.absent || 0}</span> <span class="sp l">ล ${st.leave || 0}</span></td>${t1.cells}`;
 
-    let rowHtml = `
-      <tr data-sid="${s.studentId}">
-        <td class="s-c0">${idx + 1}</td>
-        <td class="s-c1">${s.studentId}</td>
-        <td class="s-c2">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-            <span>${s.name}</span>
-            <div style="display:flex;gap:4px;flex-shrink:0;">
-              <button class="btn-sm" style="padding:2px 7px;font-size:0.72rem;background:#ede9fe;color:#6d28d9;border:1px solid #c4b5fd;"
-                onclick="printRowPDF('${s.studentId}','term1')" title="พิมพ์ ปพ.6 เทอม 1 ของ ${s.name}">T1</button>
-              <button class="btn-sm" style="padding:2px 8px;font-size:0.75rem;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;"
-                onclick="printRowPDF('${s.studentId}','year')" title="พิมพ์ ปพ.6 ทั้งปีของ ${s.name}">🖨️</button>
-            </div>
-          </div>
-        </td>
-        <td><span class="sp p">ม ${st.present || 0}</span> <span class="sp a">ข ${st.absent || 0}</span> <span class="sp l">ล ${st.leave || 0}</span></td>
-        ${t1Cells}
-        <td class="td-sc1"><span class="t1sc">${t1Keep || '-'}</span></td>
-        <td><input type="number" class="sinput s-t1e" min="0" max="${t1ExamMax}" value="${g.t1_exam ?? ''}" oninput="calcExam(this)"></td>
-        <td><span class="tbadge ${IS_SEM_MODE ? (t1Total >= 50 ? 'ok' : 'fail') : (t1Total === 0 ? 'nil' : 'ok')} t1tot">${t1Total || '-'}</span></td>`;
+    let finalScore = t1.total, isR = false;
 
-    if (IS_SEM_MODE) {
-      let rStatus = String(g.t2_acc || 'ปกติ').trim();
-      if (rStatus !== 'ติด ร' && rStatus !== 'แก้ ร') rStatus = 'ปกติ';
-      rowHtml += `
-        <td style="background:#f8fafc;">
-          <select class="sinput r-status" style="width:55px;font-size:0.75rem;padding:2px;text-align:center;cursor:pointer;" onchange="recalcTots(this.closest('tr'))">
-            <option value="ปกติ" ${rStatus === 'ปกติ' ? 'selected' : ''}>-</option>
-            <option value="ติด ร" ${rStatus === 'ติด ร' ? 'selected' : ''}>ติด ร</option>
-            <option value="แก้ ร" ${rStatus === 'แก้ ร' ? 'selected' : ''}>แก้ ร</option>
-          </select>
-        </td>`;
-    }
-
-    let finalScore = 0;
-
-    if (!IS_SEM_MODE) {
-      let t2Cells = '';
-      t2Offsets.forEach(({ unitIndex, start, count }) => {
-        const unit = getUnits(2)[unitIndex];
-        const rawMax = getUnitRawMax(2, unitIndex);
-        let raw = 0;
-        for (let i = 0; i < count; i++) {
-          const item = (unit.items || [])[i];
-          const val = t2FlatVals[start + i] ?? '';
-          raw += Number(val) || 0;
-          t2Cells += `
-            <td class="td-sub2 sc2">
-              <input type="number" class="sinput t2 sub2" min="0" max="${Number(item.max) || 0}"
-                value="${val}" data-term="2" data-unit="${unitIndex}" data-item="${i}"
-                oninput="calcSub(this,2)">
-            </td>`;
-        }
-        const scaled = calcScaledScore(raw, rawMax, Number(unit.max) || 0);
-        t2Cells += `<td class="td-sc2 sc2 unit-total-2" data-unit="${unitIndex}">${scaled || '-'}</td>`;
-      });
-
-      const t2Keep = calcKeepScoreFromFlat(2, t2FlatVals);
-      const t2Exam = Number(g.t2_exam) || 0;
-      const t2Total = t2Keep + t2Exam;
-      const grand = t1Total + t2Total;
-      finalScore = grand;
-
-      /* รวมเก็บ และ รวมสอบ ทั้งสองเทอม */
-      const sumKeep = Math.round((t1Keep + t2Keep) * 100) / 100;
-      const sumExam = t1Exam + t2Exam;
-      const keepClass = sumKeep === 0 ? 'nil' : 'ok';
-      const examClass = sumExam === 0 ? 'nil' : 'ok';
-
-      rowHtml += `
-        ${t2Cells}
-        <td class="td-sc2"><span class="t2sc">${t2Keep || '-'}</span></td>
-        <td><input type="number" class="sinput t2 s-t2e" min="0" max="${t2ExamMax}" value="${g.t2_exam ?? ''}" oninput="calcExam(this)"></td>
-        <td><span class="tbadge ${t2Total === 0 ? 'nil' : 'ok'} t2tot">${t2Total || '-'}</span></td>
-        <td class="td-sum-keep"><span class="sbadge-keep sum-keep">${sumKeep || '-'}</span></td>
-        <td class="td-sum-exam"><span class="sbadge-exam sum-exam">${sumExam || '-'}</span></td>
-        <td><span class="gbadge ${grand === 0 ? 'nil' : grand < 50 ? 'fail' : 'ok'} gtot">${grand || '-'}</span></td>`;
+    if (App.isSemMode) {
+      let rStat = String(s.grades?.t2_acc || 'ปกติ').trim();
+      if (rStat !== 'ติด ร' && rStat !== 'แก้ ร') rStat = 'ปกติ';
+      if (!App.ignoreR && rStat === 'ติด ร') isR = true;
+      html += `<td style="background:#f8fafc;"><select class="sinput r-status" style="width:55px;font-size:0.75rem;padding:2px;text-align:center;cursor:pointer;" onchange="recalcTots(this.closest('tr'))"><option value="ปกติ" ${rStat === 'ปกติ' ? 'selected' : ''}>-</option><option value="ติด ร" ${rStat === 'ติด ร' ? 'selected' : ''}>ติด ร</option><option value="แก้ ร" ${rStat === 'แก้ ร' ? 'selected' : ''}>แก้ ร</option></select></td>`;
     } else {
-      finalScore = t1Total;
+      const t2 = buildTermCells(2, s);
+      finalScore = t1.total + t2.total;
+      html += `${t2.cells}
+        <td class="td-sum-keep"><span class="sbadge-keep sum-keep">${Math.round((t1.keep + t2.keep) * 100) / 100 || '-'}</span></td>
+        <td class="td-sum-exam"><span class="sbadge-exam sum-exam">${t1.exam + t2.exam || '-'}</span></td>
+        <td><span class="gbadge ${finalScore === 0 ? 'nil' : finalScore < 50 ? 'fail' : 'ok'} gtot">${finalScore || '-'}</span></td>`;
     }
 
-    let gradeVal = finalScore === 0 ? '-' : calcGradeFrontend(finalScore);
-    let gradeClass = finalScore === 0 ? 'nil' : (finalScore < 50 ? 'fail' : 'ok');
-
-    if (IS_SEM_MODE && !IGNORE_R && (g.t2_acc === 'ติด ร')) {
-      gradeVal = 'ร';
-      gradeClass = 'fail';
-    }
-
-    rowHtml += `
-      <td style="background:#f8fafc;">
-        <span class="gbadge ${gradeClass} final-grade" style="font-size:1.05rem;border:2px solid #c7d2fe;min-width:48px;">
-          ${gradeVal}
-        </span>
-      </td>
-    </tr>`;
-
-    return rowHtml;
+    html += `<td style="background:#f8fafc;"><span class="gbadge ${isR ? 'fail' : (finalScore === 0 ? 'nil' : (finalScore < 50 ? 'fail' : 'ok'))} final-grade" style="font-size:1.05rem;border:2px solid #c7d2fe;min-width:48px;">${isR ? 'ร' : (finalScore === 0 ? '-' : Utils.calcGradeFrontend(finalScore))}</span></td></tr>`;
+    return html;
   }).join('');
-
-  document.getElementById('gtBody').innerHTML = rows;
-  refreshAllScoreInputStates(document.getElementById('gtBody'));
+  refreshAllScoreInputStates($('gtBody'));
 }
 
-/* =====================================================
-   APPLY CONFIG
-   ===================================================== */
-function applySubConfig() {
-  if (!STUDENTS.length) return toast('โหลดรายชื่อก่อน', 'error');
-  const t1Target = IS_SEM_MODE ? 100 : 50;
-  if (getUnitsMax(1) > t1Target) return toast(`เทอม 1: คะแนนรวมของหน่วยเกิน ${t1Target}`, 'error');
-  if (!IS_SEM_MODE && getUnitsMax(2) > 50) return toast('เทอม 2: คะแนนรวมของหน่วยเกิน 50', 'error');
-  syncAutoScoreToHiddenInputs();
-  refreshUnitPanelLabels();
-  updateAutoScoreDisplay();
-  const snap = snapshotInputs();
-  buildTable();
-  restoreInputs(snap);
-  toast('อัปเดตตารางแล้ว ✓');
+// =====================================================
+// 9. SCORE CALCULATION & AUTO-FOCUS
+// =====================================================
+function handleAutoTab(el, tr, mx) {
+  if (el.value.length >= String(mx).length) {
+    const rows = Array.from(tr.closest('tbody').querySelectorAll('tr'));
+    const nextInput = rows[rows.indexOf(tr) + 1]?.cells[el.closest('td').cellIndex]?.querySelector('.sinput');
+    if (nextInput) { nextInput.focus(); nextInput.select(); }
+  }
 }
 
-function snapshotInputs() {
-  const d = {};
-  document.querySelectorAll('#gtBody tr[data-sid]').forEach(tr => {
-    const sid = tr.getAttribute('data-sid');
-    d[sid] = {
-      t1s: [...tr.querySelectorAll('.sub1')].map(i => i.value),
-      t2s: [...tr.querySelectorAll('.sub2')].map(i => i.value),
-      t1e: tr.querySelector('.s-t1e')?.value || '',
-      t2e: tr.querySelector('.s-t2e')?.value || '',
-      rStat: tr.querySelector('.r-status')?.value || ''
-    };
-  });
-  return d;
-}
-
-function restoreInputs(snap) {
-  document.querySelectorAll('#gtBody tr[data-sid]').forEach(tr => {
-    const sid = tr.getAttribute('data-sid');
-    const d = snap[sid];
-    if (!d) return;
-    tr.querySelectorAll('.sub1').forEach((inp, i) => { if (d.t1s[i] !== undefined) inp.value = d.t1s[i]; });
-    tr.querySelectorAll('.sub2').forEach((inp, i) => { if (d.t2s[i] !== undefined) inp.value = d.t2s[i]; });
-    const e1 = tr.querySelector('.s-t1e');
-    const e2 = tr.querySelector('.s-t2e');
-    if (e1) e1.value = d.t1e;
-    if (e2) e2.value = d.t2e;
-    const rSel = tr.querySelector('.r-status');
-    if (rSel && d.rStat) rSel.value = d.rStat;
-    const any1 = tr.querySelector('.sub1');
-    const any2 = tr.querySelector('.sub2');
-    if (any1) calcSub(any1, 1);
-    if (any2) calcSub(any2, 2);
-    if (!any1 && !any2) recalcTots(tr);
-  });
-}
-
-/* =====================================================
-   SCORE INPUT / TOTAL RECALC
-   ===================================================== */
 function calcSub(el, t) {
   const mx = +el.getAttribute('max');
-  if (+el.value > mx) { el.value = mx; toast(`เต็ม ${mx} คะแนน`, 'warning'); }
+  if (+el.value > mx) { el.value = mx; Utils.toast(`เต็ม ${mx} คะแนน`, 'warning'); }
   if (+el.value < 0) el.value = 0;
   updateScoreInputState(el);
 
   const tr = el.closest('tr');
-  if (el.value.length >= String(mx).length) {
-    const td = el.closest('td');
-    const tbody = tr.closest('tbody');
-    const colIndex = td.cellIndex;
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    const currentRowIndex = rows.indexOf(tr);
-    if (currentRowIndex > -1 && currentRowIndex + 1 < rows.length) {
-      const nextCell = rows[currentRowIndex + 1].cells[colIndex];
-      const nextInput = nextCell?.querySelector('.sinput');
-      if (nextInput) { nextInput.focus(); nextInput.select(); }
-    }
-  }
+  handleAutoTab(el, tr, mx);
 
-  const flatVals = [...tr.querySelectorAll(t === 1 ? '.sub1' : '.sub2')].map(inp => inp.value);
-  const offsets = getUnitOffsets(t);
-  offsets.forEach(({ unitIndex, start, count }) => {
-    const unit = getUnits(t)[unitIndex];
-    const rawMax = getUnitRawMax(t, unitIndex);
+  const flatVals =[...tr.querySelectorAll(`.sub${t}`)].map(i => i.value);
+  ScoreLogic.getUnitOffsets(t).forEach(({ unitIndex, start, count }) => {
     let raw = 0;
     for (let i = 0; i < count; i++) raw += Number(flatVals[start + i]) || 0;
-    const scaled = calcScaledScore(raw, rawMax, Number(unit.max) || 0);
     const unitCell = tr.querySelector(`.unit-total-${t}[data-unit="${unitIndex}"]`);
-    if (unitCell) unitCell.textContent = scaled || '-';
+    if (unitCell) unitCell.textContent = ScoreLogic.calcScaled(raw, ScoreLogic.getUnitRawMax(t, unitIndex), Number(App.units[t][unitIndex].max)||0) || '-';
   });
 
-  const keepScore = calcKeepScoreFromFlat(t, flatVals);
-  const scEl = tr.querySelector(t === 1 ? '.t1sc' : '.t2sc');
-  if (scEl) scEl.textContent = keepScore || '-';
-
-  recalcTots(tr);
-  refreshAllScoreInputStates(tr);
+  const scEl = tr.querySelector(`.t${t}sc`);
+  if (scEl) scEl.textContent = ScoreLogic.calcKeepFromFlat(t, flatVals) || '-';
+  recalcTots(tr); refreshAllScoreInputStates(tr);
 }
 
 function calcExam(el) {
   const mx = +el.getAttribute('max');
-  if (+el.value > mx) { el.value = mx; toast(`เต็ม ${mx} คะแนน`, 'warning'); }
+  if (+el.value > mx) { el.value = mx; Utils.toast(`เต็ม ${mx} คะแนน`, 'warning'); }
   if (+el.value < 0) el.value = 0;
   updateScoreInputState(el);
-
   const tr = el.closest('tr');
-  if (el.value.length >= String(mx).length) {
-    const td = el.closest('td');
-    const tbody = tr.closest('tbody');
-    const colIndex = td.cellIndex;
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    const currentRowIndex = rows.indexOf(tr);
-    if (currentRowIndex > -1 && currentRowIndex + 1 < rows.length) {
-      const nextCell = rows[currentRowIndex + 1].cells[colIndex];
-      const nextInput = nextCell?.querySelector('.sinput');
-      if (nextInput) { nextInput.focus(); nextInput.select(); }
-    }
-  }
-  recalcTots(tr);
-  refreshAllScoreInputStates(tr);
+  handleAutoTab(el, tr, mx);
+  recalcTots(tr); refreshAllScoreInputStates(tr);
 }
 
-/* =====================================================
-   recalcTots — อัปเดตรวมเก็บ รวมสอบ ด้วย
-   ===================================================== */
 function recalcTots(tr) {
-  const t1s = +tr.querySelector('.t1sc')?.textContent || 0;
-  const t2s = +tr.querySelector('.t2sc')?.textContent || 0;
-  const t1e = +tr.querySelector('.s-t1e')?.value || 0;
-  const t2e = +tr.querySelector('.s-t2e')?.value || 0;
+  const getVal = (sel) => Number(tr.querySelector(sel)?.textContent || tr.querySelector(sel)?.value || 0);
+  const t1s = getVal('.t1sc'), t2s = getVal('.t2sc'), t1e = getVal('.s-t1e'), t2e = getVal('.s-t2e');
+  const t1t = t1s + t1e, t2t = t2s + t2e, grand = t1t + t2t;
+  const updateUI = (sel, val, cls) => { const e = tr.querySelector(sel); if(e) { e.textContent = val||'-'; e.className = cls; } };
 
-  const t1t = t1s + t1e;
-  const t2t = t2s + t2e;
-  const g = t1t + t2t;
+  updateUI('.t1tot', t1t, `tbadge ${t1t === 0 ? 'nil' : 'ok'} t1tot`);
+  updateUI('.t2tot', t2t, `tbadge ${t2t === 0 ? 'nil' : 'ok'} t2tot`);
+  updateUI('.gtot', grand, `gbadge ${grand === 0 ? 'nil' : grand < 50 ? 'fail' : 'ok'} gtot`);
+  updateUI('.sum-keep', Math.round((t1s + t2s) * 100) / 100, `sbadge-keep sum-keep`);
+  updateUI('.sum-exam', t1e + t2e, `sbadge-exam sum-exam`);
 
-  const tc = v => v === 0 ? 'nil' : 'ok';
-  const gc = g === 0 ? 'nil' : g < 50 ? 'fail' : 'ok';
-
-  const e1 = tr.querySelector('.t1tot');
-  const e2 = tr.querySelector('.t2tot');
-  const eG = tr.querySelector('.gtot');
-
-  if (e1) { e1.textContent = t1t || '-'; e1.className = `tbadge ${tc(t1t)} t1tot`; }
-  if (e2) { e2.textContent = t2t || '-'; e2.className = `tbadge ${tc(t2t)} t2tot`; }
-  if (eG) { eG.textContent = g || '-'; eG.className = `gbadge ${gc} gtot`; }
-
-  /* ✅ อัปเดต รวมเก็บ ท.1+ท.2 */
-  const eSumKeep = tr.querySelector('.sum-keep');
-  if (eSumKeep) {
-    const sumKeep = Math.round((t1s + t2s) * 100) / 100;
-    eSumKeep.textContent = sumKeep || '-';
-  }
-
-  /* ✅ อัปเดต รวมสอบ ท.1+ท.2 */
-  const eSumExam = tr.querySelector('.sum-exam');
-  if (eSumExam) {
-    const sumExam = t1e + t2e;
-    eSumExam.textContent = sumExam || '-';
-  }
-
-  const finalScore = IS_SEM_MODE ? t1t : g;
-  const eGrade = tr.querySelector('.final-grade');
-
-  let isR = false;
-  if (IS_SEM_MODE && !IGNORE_R) {
-    const rSel = tr.querySelector('.r-status');
-    if (rSel && rSel.value === 'ติด ร') isR = true;
-  }
-
-  if (eGrade) {
-    if (isR) {
-      eGrade.textContent = 'ร';
-      eGrade.className = `gbadge fail final-grade`;
-    } else {
-      const gradeVal = finalScore === 0 ? '-' : calcGradeFrontend(finalScore);
-      const gradeClass = finalScore === 0 ? 'nil' : (finalScore < 50 ? 'fail' : 'ok');
-      eGrade.textContent = gradeVal;
-      eGrade.className = `gbadge ${gradeClass} final-grade`;
-    }
-  }
+  const finalScore = App.isSemMode ? t1t : grand;
+  const isR = App.isSemMode && !App.ignoreR && (tr.querySelector('.r-status')?.value === 'ติด ร');
+  updateUI('.final-grade', isR ? 'ร' : (finalScore === 0 ? '-' : Utils.calcGradeFrontend(finalScore)), `gbadge ${isR ? 'fail' : (finalScore === 0 ? 'nil' : (finalScore < 50 ? 'fail' : 'ok'))} final-grade`);
 }
 
-/* =====================================================
-   SAVE GRADES
-   ===================================================== */
-async function saveGrades() {
-  syncAutoScoreToHiddenInputs();
-  const t1Keep = getUnitsMax(1);
-  const t2Keep = getUnitsMax(2);
-  if (t1Keep > (IS_SEM_MODE ? 100 : 50)) return toast(`เทอม 1: คะแนนรวมหน่วยเกิน ${IS_SEM_MODE ? 100 : 50}`, 'error');
-  if (!IS_SEM_MODE && t2Keep > 50) return toast('เทอม 2: คะแนนรวมหน่วยเกิน 50', 'error');
-
-  const records = [];
-  document.querySelectorAll('#gtBody tr[data-sid]').forEach(tr => {
-    const sid = tr.getAttribute('data-sid');
-    const t1sv = [...tr.querySelectorAll('.sub1')].map(i => i.value);
-    const t2sv = [...tr.querySelectorAll('.sub2')].map(i => i.value);
-    const t1acc = calcKeepScoreFromFlat(1, t1sv);
-    let t2acc = 0;
-    if (IS_SEM_MODE) {
-      const rSel = tr.querySelector('.r-status');
-      t2acc = rSel ? rSel.value : 'ปกติ';
-    } else {
-      t2acc = calcKeepScoreFromFlat(2, t2sv);
-    }
-    records.push({
-      studentId: sid,
-      t1_sub: t1sv, t1_acc: t1acc, t1_exam: tr.querySelector('.s-t1e')?.value || '',
-      t2_sub: t2sv, t2_acc: t2acc, t2_exam: tr.querySelector('.s-t2e')?.value || ''
-    });
+function applySubConfig() {
+  if (!App.students.length) return Utils.toast('โหลดรายชื่อก่อน', 'error');
+  if (ScoreLogic.getUnitsMax(1) > (App.isSemMode ? 100 : 50)) return Utils.toast(`เทอม 1: คะแนนรวมเกิน ${App.isSemMode ? 100 : 50}`, 'error');
+  if (!App.isSemMode && ScoreLogic.getUnitsMax(2) > 50) return Utils.toast('เทอม 2: คะแนนรวมเกิน 50', 'error');
+  ScoreLogic.syncHiddenInputs(); refreshUnitPanelLabels();
+  
+  const snap = {};
+  $$('#gtBody tr[data-sid]').forEach(tr => snap[tr.getAttribute('data-sid')] = {
+    t1s:[...tr.querySelectorAll('.sub1')].map(i => i.value), t2s: [...tr.querySelectorAll('.sub2')].map(i => i.value),
+    t1e: tr.querySelector('.s-t1e')?.value || '', t2e: tr.querySelector('.s-t2e')?.value || '', rStat: tr.querySelector('.r-status')?.value || ''
   });
 
-  if (!records.length) return toast('ยังไม่มีข้อมูล', 'warning');
-  const config = buildConfigPayload();
-  pg('กำลังบันทึกคะแนน...');
-  try {
-    const msg = await api('saveGrades', {
-      year: document.getElementById('gYear').value,
-      classroom: document.getElementById('gClass').value,
-      subject: document.getElementById('gSubj').value,
-      config, gradeRecords: records
-    });
-    toast('✅ ' + msg);
-  } catch (e) {
-    toast(e.message, 'error');
-  }
-  pg_();
+  buildTable();
+
+  $$('#gtBody tr[data-sid]').forEach(tr => {
+    const d = snap[tr.getAttribute('data-sid')]; if (!d) return;
+    tr.querySelectorAll('.sub1').forEach((inp, i) => { if (d.t1s[i] !== undefined) inp.value = d.t1s[i]; });
+    tr.querySelectorAll('.sub2').forEach((inp, i) => { if (d.t2s[i] !== undefined) inp.value = d.t2s[i]; });
+    if (tr.querySelector('.s-t1e')) tr.querySelector('.s-t1e').value = d.t1e;
+    if (tr.querySelector('.s-t2e')) tr.querySelector('.s-t2e').value = d.t2e;
+    if (tr.querySelector('.r-status') && d.rStat) tr.querySelector('.r-status').value = d.rStat;
+    const any1 = tr.querySelector('.sub1'), any2 = tr.querySelector('.sub2');
+    if (any1) calcSub(any1, 1); if (any2) calcSub(any2, 2); if (!any1 && !any2) recalcTots(tr);
+  });
+  Utils.toast('อัปเดตตารางแล้ว ✓');
 }
 
-async function saveSchoolProfile() {
-  const profile = getSchoolProfileForm();
-  pg('กำลังบันทึกข้อมูลโรงเรียน...');
-  try {
-    const msg = await api('saveSchoolProfile', profile);
-    SCHOOL_PROFILE = profile;
-    toast('✅ ' + (msg || 'บันทึกข้อมูลโรงเรียนเรียบร้อย'));
-  } catch (e) {
-    toast('เกิดข้อผิดพลาด: ' + e.message, 'error');
-  }
-  pg_();
+// =====================================================
+// 10. SAVING SETTINGS & DATA
+// =====================================================
+function getCourseInfoForm() {
+  return {
+    learningArea: $('ci_learning_area').value || '', name: $('ci_name').value || '', code: $('ci_code').value || '',
+    type: $('ci_type').value || 'รายวิชาพื้นฐาน', credit: $('ci_credit').value || '', teacherName: $('ci_teacher_name').value || '',
+    groupHeadName: $('ci_group_head_name').value || '', description: $('ci_description').value || '', indicators: $('ci_indicators').value || '',
+    schedule: { mon: +$('sch_mon').value || 0, tue: +$('sch_tue').value || 0, wed: +$('sch_wed').value || 0, thu: +$('sch_thu').value || 0, fri: +$('sch_fri').value || 0, manualAdjust: +$('ci_manual_adjust').value || 0, totalHours: +$('ci_total_hours').textContent || 0 }
+  };
+}
+
+function setCourseInfoForm(c = {}, subj = '') {
+  $('ci_learning_area').value = c.learningArea || ''; $('ci_name').value = c.name || subj || ''; $('ci_code').value = c.code || '';
+  $('ci_type').value = c.type || 'รายวิชาพื้นฐาน'; $('ci_credit').value = c.credit || ''; $('ci_teacher_name').value = c.teacherName || '';
+  $('ci_group_head_name').value = c.groupHeadName || ''; $('ci_description').value = c.description || ''; $('ci_indicators').value = c.indicators || '';
+  ['mon','tue','wed','thu','fri'].forEach(d => $(`sch_${d}`).value = c.schedule?.[d] || 0);
+  $('ci_manual_adjust').value = c.schedule?.manualAdjust || 0; $('ci_total_hours').textContent = c.schedule?.totalHours || 0;
+}
+
+function getSchoolProfileForm() {
+  return { school_name: $('sp_school_name').value || '', director_name: $('sp_director_name').value || '', director_position: $('sp_director_position').value || 'ผู้อำนวยการโรงเรียน', academic_head_name: $('sp_academic_head_name').value || '', academic_head_position: $('sp_academic_head_position').value || 'หัวหน้าวิชาการ' };
+}
+
+function setSchoolProfileForm(p = {}) {
+  App.schoolProfile = { ...App.schoolProfile, ...p };['school_name','director_name','director_position','academic_head_name','academic_head_position'].forEach(k => $(`sp_${k}`).value = App.schoolProfile[k]);
 }
 
 function buildConfigPayload() {
-  const courseInfo = getCourseInfoForm();
-  return {
-    t1_acc: getUnitsMax(1), t1_exam: getExamMax(1),
-    t2_acc: IS_SEM_MODE ? 0 : getUnitsMax(2), t2_exam: IS_SEM_MODE ? 0 : getExamMax(2),
-    units: { t1: SI[1] || [], t2: SI[2] || [] },
-    subItems: { t1: [], t2: [] }, rawMax: { t1: 0, t2: 0 }, courseInfo
-  };
+  return { t1_acc: ScoreLogic.getUnitsMax(1), t1_exam: ScoreLogic.getExamMax(1), t2_acc: App.isSemMode ? 0 : ScoreLogic.getUnitsMax(2), t2_exam: App.isSemMode ? 0 : ScoreLogic.getExamMax(2), units: { t1: App.units[1], t2: App.units[2] }, subItems: { t1: [], t2:[] }, rawMax: { t1: 0, t2: 0 }, courseInfo: getCourseInfoForm() };
+}
+
+async function saveGrades() {
+  ScoreLogic.syncHiddenInputs();
+  if (ScoreLogic.getUnitsMax(1) > (App.isSemMode ? 100 : 50)) return Utils.toast(`เทอม 1: คะแนนรวมหน่วยเกิน ${App.isSemMode ? 100 : 50}`, 'error');
+  if (!App.isSemMode && ScoreLogic.getUnitsMax(2) > 50) return Utils.toast('เทอม 2: คะแนนรวมหน่วยเกิน 50', 'error');
+
+  const records = [];
+  $$('#gtBody tr[data-sid]').forEach(tr => {
+    const t1sv = [...tr.querySelectorAll('.sub1')].map(i => i.value), t2sv = [...tr.querySelectorAll('.sub2')].map(i => i.value);
+    records.push({ studentId: tr.getAttribute('data-sid'), t1_sub: t1sv, t1_acc: ScoreLogic.calcKeepFromFlat(1, t1sv), t1_exam: tr.querySelector('.s-t1e')?.value || '', t2_sub: t2sv, t2_acc: App.isSemMode ? (tr.querySelector('.r-status')?.value || 'ปกติ') : ScoreLogic.calcKeepFromFlat(2, t2sv), t2_exam: tr.querySelector('.s-t2e')?.value || '' });
+  });
+
+  if (!records.length) return Utils.toast('ยังไม่มีข้อมูล', 'warning');
+  Utils.showLoading('กำลังบันทึกคะแนน...');
+  try { Utils.toast('✅ ' + await api('saveGrades', { year: $('gYear').value, classroom: $('gClass').value, subject: $('gSubj').value, config: buildConfigPayload(), gradeRecords: records })); } catch (e) { Utils.toast(e.message, 'error'); }
+  Utils.hideLoading();
 }
 
 async function saveConfigOnly() {
-  const year = document.getElementById('gYear').value;
-  const cls = document.getElementById('gClass').value;
-  const subj = document.getElementById('gSubj').value;
-  if (!subj || subj === "-- ไม่พบวิชา --") return false;
-  const t1Keep = getUnitsMax(1);
-  const t2Keep = getUnitsMax(2);
-  const target = IS_SEM_MODE ? 100 : 50;
-  if (t1Keep > target) { toast(`เทอม 1: คะแนนรวมของหน่วยเกิน ${target} คะแนน`, 'warning'); return false; }
-  if (!IS_SEM_MODE && t2Keep > 50) { toast(`เทอม 2: คะแนนรวมของหน่วยเกิน 50 คะแนน`, 'warning'); return false; }
-  const config = buildConfigPayload();
-  pg('กำลังบันทึกการตั้งค่า...');
-  try {
-    await api('saveGrades', { year, classroom: cls, subject: subj, config, gradeRecords: [] });
-    return true;
-  } catch (e) {
-    toast('เกิดข้อผิดพลาด: ' + e.message, 'error');
-    return false;
-  } finally {
-    pg_();
-  }
+  const subj = $('gSubj').value; if (!subj || subj === "-- ไม่พบวิชา --") return false;
+  if (ScoreLogic.getUnitsMax(1) > (App.isSemMode ? 100 : 50) || (!App.isSemMode && ScoreLogic.getUnitsMax(2) > 50)) { Utils.toast('คะแนนรวมเกินเป้าหมาย', 'warning'); return false; }
+  Utils.showLoading('กำลังบันทึกการตั้งค่า...');
+  try { await api('saveGrades', { year: $('gYear').value, classroom: $('gClass').value, subject: subj, config: buildConfigPayload(), gradeRecords:[] }); return true; } catch (e) { Utils.toast(e.message, 'error'); return false; } finally { Utils.hideLoading(); }
 }
 
-async function saveCourseMetaOnly() {
-  if (!document.getElementById('ci_name').value.trim()) document.getElementById('ci_name').value = document.getElementById('gSubj').value || '';
-  const ok = await saveConfigOnly();
-  if (ok) toast('✅ บันทึกข้อมูลวิชาเรียบร้อย');
-}
-async function saveScheduleOnly() { const ok = await saveConfigOnly(); if (ok) toast('✅ บันทึกเวลาเรียนเรียบร้อย'); }
-async function saveScoreConfigOnly() { const ok = await saveConfigOnly(); if (ok) toast('✅ บันทึกการตั้งค่าคะแนนเรียบร้อย'); }
-async function saveCourseInfo() {
-  const ok = await saveConfigOnly();
-  if (!ok) return;
-  setTimeout(() => {
-    const el = document.getElementById('accCourseInfo');
-    const body = document.getElementById('accCourseInfoBody');
-    if (el) el.classList.remove('open');
-    if (body) body.classList.add('hidden');
-  }, 800);
+async function saveSchoolProfile() {
+  const p = getSchoolProfileForm(); Utils.showLoading('กำลังบันทึกข้อมูลโรงเรียน...');
+  try { App.schoolProfile = p; Utils.toast('✅ ' + (await api('saveSchoolProfile', p) || 'บันทึกเรียบร้อย')); } catch (e) { Utils.toast(e.message, 'error'); }
+  Utils.hideLoading();
 }
 
-/* =====================================================
-   KEYBOARD NAVIGATION
-   ===================================================== */
-document.addEventListener('keydown', function(event) {
-  if (event.key !== 'Enter' && event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-  const currentInput = document.activeElement;
-  if (!currentInput.classList.contains('sinput')) return;
-  event.preventDefault();
-  const td = currentInput.closest('td');
-  const tr = currentInput.closest('tr');
-  const table = currentInput.closest('table');
-  const colIndex = td.cellIndex;
-  const rows = Array.from(table.querySelectorAll('tbody tr'));
-  const currentRowIndex = rows.indexOf(tr);
-  let targetRowIndex = -1;
-  if (event.key === 'Enter' || event.key === 'ArrowDown') targetRowIndex = currentRowIndex + 1;
-  if (event.key === 'ArrowUp') targetRowIndex = currentRowIndex - 1;
-  if (targetRowIndex > -1 && targetRowIndex < rows.length) {
-    const targetRow = rows[targetRowIndex];
-    const targetCell = targetRow.cells[colIndex];
-    const targetInput = targetCell?.querySelector('.sinput');
-    if (targetInput) { targetInput.focus(); targetInput.select(); }
-  }
-});
+async function saveCourseMetaOnly() { if (!$('ci_name').value.trim()) $('ci_name').value = $('gSubj').value || ''; if (await saveConfigOnly()) Utils.toast('✅ บันทึกข้อมูลวิชาเรียบร้อย'); }
+async function saveScheduleOnly() { if (await saveConfigOnly()) Utils.toast('✅ บันทึกเวลาเรียนเรียบร้อย'); }
+async function saveScoreConfigOnly() { if (await saveConfigOnly()) Utils.toast('✅ บันทึกการตั้งค่าคะแนนเรียบร้อย'); }
 
-/* =====================================================
-   PDF / EXPORT
-   ===================================================== */
-function openBase64PdfInPrintWindow(dataUri, fileName = 'report.pdf') {
-  try {
-    const printWin = window.open('', '_blank');
-    if (!printWin) { toast('เบราว์เซอร์บล็อก popup กรุณาอนุญาต', 'error'); return; }
-    printWin.document.open();
-    printWin.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>${fileName}</title>
-      <style>html,body{margin:0;padding:0;height:100%;background:#fff;overflow:hidden;}
-      iframe.pdf-frame{width:100vw;height:100vh;border:none;display:block;}</style></head>
-      <body><iframe class="pdf-frame" src="${dataUri}"></iframe></body></html>`);
-    printWin.document.close();
-  } catch (err) {
-    console.error(err);
-    toast('เกิดข้อผิดพลาดในการเปิด PDF', 'error');
-  }
-}
-
-async function printRowPDF(studentId, reportType = 'year') {
-  const year = document.getElementById('gYear').value;
-  const classroom = document.getElementById('gClass').value;
-  const reportLabel = reportType === 'term1' ? 'เทอม1' : 'ทั้งปี';
-  const printWin = window.open('', '_blank');
-  if (!printWin) { toast('เบราว์เซอร์บล็อก popup กรุณาอนุญาต', 'error'); return; }
-  printWin.document.write('<html><head><meta charset="UTF-8"><title>กำลังโหลด...</title></head><body style="font-family:sans-serif;text-align:center;padding-top:80px;color:#666;"><h2>⏳ กำลังสร้างเอกสาร...</h2></body></html>');
-  pg(`กำลังสร้างเอกสาร ${reportLabel}...`);
-  try {
-    const html = await api('generateStudentHTML', { year, classroom, studentId, ignoreR: IGNORE_R, reportType });
-    writeToPrintWindow(printWin, html, `ปพ6_${reportLabel}_${studentId}_${classroom}`);
-    toast(`เปิดหน้าพิมพ์รายบุคคล (${reportLabel}) แล้ว`);
-  } catch (e) {
-    printWin.close();
-    toast('เกิดข้อผิดพลาด: ' + e.message, 'error');
-  }
-  pg_();
-}
-
-async function printClassPDF(reportType = 'year') {
-  const year = document.getElementById('gYear').value;
-  const classroom = document.getElementById('gClass').value;
-  const reportLabel = reportType === 'term1' ? 'เทอม 1' : 'ทั้งปีการศึกษา';
-  if (!confirm(`พิมพ์รายงาน ปพ.6 ${reportLabel} ห้อง ${classroom} ปี ${year} ?`)) return;
-  const printWin = window.open('', '_blank');
-  if (!printWin) { toast('เบราว์เซอร์บล็อก popup กรุณาอนุญาต', 'error'); return; }
-  printWin.document.write('<html><head><meta charset="UTF-8"><title>กำลังโหลด...</title></head><body style="font-family:sans-serif;text-align:center;padding-top:80px;color:#666;"><h2>⏳ กำลังสร้างเอกสาร...</h2></body></html>');
-  pg(`กำลังสร้างเอกสาร ${reportLabel} ทั้งห้อง...`);
-  try {
-    const html = await api('generateClassHTML', { year, classroom, ignoreR: IGNORE_R, reportType });
-    writeToPrintWindow(printWin, html, `ปพ6_${reportLabel.replace(/\s+/g,'')}_${classroom}_ปี${year}`);
-    toast(`เปิดหน้าพิมพ์ ${reportLabel} ทั้งห้องแล้ว`);
-  } catch (e) {
-    printWin.close();
-    toast('เกิดข้อผิดพลาด: ' + e.message, 'error');
-  }
-  pg_();
-}
-
-async function printSummaryPDF(reportType = 'year') {
-  const year = document.getElementById('gYear').value;
-  const classroom = document.getElementById('gClass').value;
-  const isPrimary = !classroom.includes('เทอม');
-  const reportLabel = reportType === 'term1' ? 'เทอม 1' : (reportType === 'term2' ? 'เทอม 2' : 'ทั้งปี');
-  if (isPrimary) closeSummaryModeModal();
-  if (!confirm(`ต้องการสร้างตารางสรุปเกรดรวม (${reportLabel}) ของห้อง ${classroom} ใช่หรือไม่?`)) return;
-  const printWin = window.open('', '_blank');
-  if (!printWin) { toast('เบราว์เซอร์บล็อก popup กรุณาอนุญาต', 'error'); return; }
-  printWin.document.write('<html><head><meta charset="UTF-8"><title>กำลังโหลด...</title></head><body style="font-family:sans-serif;text-align:center;padding-top:80px;color:#666;"><h2>⏳ กำลังรวบรวมข้อมูล...</h2></body></html>');
-  pg(`กำลังรวบรวมข้อมูลสรุปเกรดรวม (${reportLabel})...`);
-  try {
-    const html = await api('generateSummaryHTML', { year, classroom, ignoreR: IGNORE_R, reportType });
-    writeToPrintWindow(printWin, html, `สรุปผลการเรียน_${classroom}_${reportLabel.replace(/\s+/g,'')}_ปี${year}`);
-    toast(`เปิดหน้าพิมพ์สรุปผลการเรียน (${reportLabel}) แล้ว`);
-  } catch (e) {
-    printWin.close();
-    toast('เกิดข้อผิดพลาด: ' + e.message, 'error');
-  }
-  pg_();
-}
-
-async function exportSummaryCSV() {
-  const year = document.getElementById('gYear').value;
-  const classroom = document.getElementById('gClass').value;
-  if (!confirm(`ต้องการดาวน์โหลดไฟล์ Excel (CSV) ของห้อง ${classroom} ใช่หรือไม่?`)) return;
-  pg('กำลังเตรียมไฟล์...');
-  try {
-    const base64Data = await api('generateSummaryCSV', { year, classroom, ignoreR: IGNORE_R });
-    const byteCharacters = atob(base64Data);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `สรุปผลการเรียน_${classroom}_ปี${year}_${IGNORE_R ? 'ซ่อนร' : 'แสดงร'}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast('✅ ดาวน์โหลดไฟล์ Excel สำเร็จ');
-  } catch (e) {
-    toast('เกิดข้อผิดพลาด: ' + e.message, 'error');
-  }
-  pg_();
-}
-
-function toggleIgnoreR() {
-  IGNORE_R = document.getElementById('toggleR').checked;
-  document.querySelectorAll('#gtBody tr[data-sid]').forEach(tr => recalcTots(tr));
-}
-
-/* =====================================================
-   HOLISTIC / ASSESSMENT
-   ===================================================== */
-function renderHolisticTable(students, containerId = 'assContainer', tableId = 'assBody', mode = 'subject') {
-  const assContainer = document.getElementById(containerId);
-  if (!assContainer) return;
-  if (!students.length) { assContainer.innerHTML = `<div class="text-center text-muted py-3">ไม่พบข้อมูลผู้เรียน</div>`; return; }
-
-  const charItems = ["รักชาติฯ","ซื่อสัตย์ฯ","มีวินัย","ใฝ่เรียนรู้","อยู่อย่างพอเพียง","มุ่งมั่นทำงาน","รักความเป็นไทย","มีจิตสาธารณะ"];
-  const rwItems   = ["สามารถอ่านฯ","สามารถจับประเด็นฯ","สามารถวิเคราะห์ฯ","สามารถประเมินฯ","สามารถเขียนฯ"];
-  const skItems   = ["สื่อสาร","คิด","แก้ปัญหา","ทักษะชีวิต","เทคโนโลยี"];
-
-  const thItems = `
-    <tr>
-      <th rowspan="2" class="ass-no" style="width:40px;">ที่</th>
-      <th rowspan="2" class="ass-name" style="min-width:140px;">ชื่อ-นามสกุล</th>
-      <th colspan="10" class="bg-char">คุณลักษณะอันพึงประสงค์</th>
-      <th colspan="7" class="bg-rw">อ่าน คิด วิเคราะห์ เขียน</th>
-      <th colspan="7" style="background:#d1d5db;">สมรรถนะสำคัญ</th>
-    </tr>
-    <tr>
-      ${charItems.map((c, i) => `<th class="bg-char v-text">${i + 1}.${c}</th>`).join('')}
-      <th class="bg-sum v-text">รวม</th><th class="bg-sum">ผล</th>
-      ${rwItems.map((r, i) => `<th class="bg-rw v-text">${i + 1}.${r}</th>`).join('')}
-      <th class="bg-sum v-text">รวม</th><th class="bg-sum">ผล</th>
-      ${skItems.map((s, i) => `<th class="v-text" style="background:#e5e7eb;">${i + 1}.${s}</th>`).join('')}
-      <th class="bg-sum v-text">รวม</th><th class="bg-sum">ผล</th>
-    </tr>`;
-
-  const trs = students.map((s, idx) => {
-    const h = mode === 'homeroom' ? (s.holistic_homeroom || {}) : (s.holistic_subject || {});
-    const cVals = (h.char_scores && h.char_scores.length === 8) ? h.char_scores : Array(8).fill("");
-    const rVals = (h.read_scores && h.read_scores.length === 5) ? h.read_scores : Array(5).fill("");
-    const sVals = (h.skill_scores && h.skill_scores.length === 5) ? h.skill_scores : Array(5).fill("");
-    const cHtml = cVals.map(v => `<td><input type="number" class="inp-ass c-inp" min="0" max="3" value="${v}" oninput="calcAssRow(this, 'c')"></td>`).join('');
-    const rHtml = rVals.map(v => `<td><input type="number" class="inp-ass r-inp" min="0" max="3" value="${v}" oninput="calcAssRow(this, 'r')"></td>`).join('');
-    const sHtml = sVals.map(v => `<td><input type="number" class="inp-ass s-inp" min="0" max="3" value="${v}" oninput="calcAssRow(this, 's')"></td>`).join('');
-    return `
-      <tr data-hsid="${s.studentId}">
-        <td class="ass-no">${idx + 1}</td>
-        <td class="ass-name" style="text-align:left;font-weight:600;background:#fff;">${s.name}</td>
-        ${cHtml}
-        <td class="bg-sum c-total">-</td>
-        <td><span class="res-badge c-result">-</span><input type="hidden" class="c-final-val" value="${h.char || ''}"></td>
-        ${rHtml}
-        <td class="bg-sum r-total">-</td>
-        <td><span class="res-badge r-result">-</span><input type="hidden" class="r-final-val" value="${h.read || ''}"></td>
-        ${sHtml}
-        <td class="bg-sum s-total">-</td>
-        <td><span class="res-badge s-result">-</span><input type="hidden" class="s-final-val" value="${h.skill || ''}"></td>
-      </tr>`;
-  }).join('');
-
-  assContainer.innerHTML = `
-    <div class="ass-wrap">
-      <table class="ass-tbl" id="${tableId}">
-        <thead>${thItems}</thead>
-        <tbody>${trs}</tbody>
-      </table>
-    </div>`;
-
-  document.querySelectorAll(`#${tableId} tr[data-hsid]`).forEach(tr => {
-    calcAssRow(tr.querySelector('.c-inp'), 'c');
-    calcAssRow(tr.querySelector('.r-inp'), 'r');
-    calcAssRow(tr.querySelector('.s-inp'), 's');
-  });
-}
-
-function calcAssRow(inputEl, type) {
-  if (!inputEl) return;
-  const tr = inputEl.closest('tr');
-  if (!tr) return;
-  const inputs = tr.querySelectorAll(`.${type}-inp`);
-  let sum = 0, count = 0;
-  inputs.forEach(inp => {
-    let val = parseFloat(inp.value);
-    if (!isNaN(val)) {
-      if (val > 3) { inp.value = 3; val = 3; }
-      if (val < 0) { inp.value = 0; val = 0; }
-      sum += val; count++;
-    }
-  });
-  if (document.activeElement === inputEl && inputEl.value.length >= 1) {
-    let nextTd = inputEl.closest('td').nextElementSibling;
-    let nextInput = null;
-    while (nextTd) { nextInput = nextTd.querySelector('.inp-ass'); if (nextInput) break; nextTd = nextTd.nextElementSibling; }
-    if (nextInput) { nextInput.focus(); nextInput.select(); }
-  }
-  const totalEl = tr.querySelector(`.${type}-total`);
-  const resultBadge = tr.querySelector(`.${type}-result`);
-  const hiddenFinal = tr.querySelector(`.${type}-final-val`);
-  if (count === 0) {
-    if (totalEl) totalEl.textContent = "-";
-    if (resultBadge) { resultBadge.textContent = "-"; resultBadge.className = `res-badge ${type}-result`; }
-    if (hiddenFinal) hiddenFinal.value = "";
-    return;
-  }
-  const avg = sum / count;
-  let resText = "", resClass = "", pdfValue = "";
-  if (avg >= 2.5) { resText = "ดีเยี่ยม"; resClass = "res-3"; pdfValue = "ดีเยี่ยม (3)"; }
-  else if (avg >= 1.5) { resText = "ดี"; resClass = "res-2"; pdfValue = "ดี (2)"; }
-  else if (avg >= 1.0) { resText = "ผ่าน"; resClass = "res-1"; pdfValue = "ผ่าน (1)"; }
-  else { resText = "ไม่ผ่าน"; resClass = "res-0"; pdfValue = "ไม่ผ่าน (0)"; }
-  if (totalEl) totalEl.textContent = sum;
-  if (resultBadge) { resultBadge.textContent = resText; resultBadge.className = `res-badge ${type}-result ${resClass}`; }
-  if (hiddenFinal) hiddenFinal.value = pdfValue;
-}
-
-async function saveHolisticData(mode = 'subject') {
-  const tableId = mode === 'homeroom' ? '#hrAssBody' : '#assBody';
-  const records = [];
-  document.querySelectorAll(`${tableId} tr[data-hsid]`).forEach(tr => {
-    records.push({
-      studentId: tr.getAttribute('data-hsid'),
-      char_scores: [...tr.querySelectorAll('.c-inp')].map(i => i.value),
-      char_total: tr.querySelector('.c-total').textContent,
-      char: tr.querySelector('.c-final-val').value,
-      read_scores: [...tr.querySelectorAll('.r-inp')].map(i => i.value),
-      read_total: tr.querySelector('.r-total').textContent,
-      read: tr.querySelector('.r-final-val').value,
-      skill_scores: [...tr.querySelectorAll('.s-inp')].map(i => i.value),
-      skill_total: tr.querySelector('.s-total').textContent,
-      skill: tr.querySelector('.s-final-val').value
-    });
-  });
-  if (!records.length) return toast('ไม่พบรายชื่อนักเรียน', 'error');
-  pg('กำลังบันทึกข้อมูล...');
-  try {
-    const msg = await api('saveHolistic', {
-      mode,
-      year: document.getElementById('gYear').value,
-      classroom: document.getElementById('gClass').value,
-      subject: document.getElementById('gSubj').value,
-      records
-    });
-    toast('✅ ' + msg);
-  } catch (e) {
-    toast(e.message, 'error');
-  }
-  pg_();
-}
-
-/* =====================================================
-   TOTAL HOURS
-   ===================================================== */
+// =====================================================
+// 11. HOLISTIC & ATTENDANCE
+// =====================================================
 function calcTotalHours() {
-  if (!TERM_DATES || Object.keys(TERM_DATES).length === 0) {
-    document.getElementById('ci_total_hours').textContent = 0;
-    return;
+  if (!App.termDates || Object.keys(App.termDates).length === 0) return $('ci_total_hours').textContent = 0;
+  const cls = $('gClass').value;
+  const startD = App.termDates[cls.includes("เทอม 2") ? 't2_start' : 't1_start'], endD = App.termDates[cls.includes("เทอม 1") ? 't1_end' : 't2_end'];
+  if (!startD || !endD) return;
+
+  const parseD = (str) => { const p = String(str).split(/[\/\-]/); return p.length === 3 ? new Date(parseInt(p[2]) > 2500 ? parseInt(p[2]) - 543 : parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0])) : new Date(); };
+  const start = parseD(startD), end = parseD(endD); start.setHours(0,0,0,0); end.setHours(0,0,0,0);
+  
+  const sch = { 1: +$('sch_mon').value||0, 2: +$('sch_tue').value||0, 3: +$('sch_wed').value||0, 4: +$('sch_thu').value||0, 5: +$('sch_fri').value||0, 0:0, 6:0 };
+  const hSet = new Set(App.holidays.filter(h => h.type === 'holiday').map(h => h.date));
+  let hrs = 0, cur = new Date(start);
+  
+  while (cur <= end) {
+    if (!hSet.has(`${String(cur.getDate()).padStart(2,'0')}/${String(cur.getMonth()+1).padStart(2,'0')}/${cur.getFullYear()+543}`)) hrs += sch[cur.getDay()];
+    cur.setDate(cur.getDate() + 1);
   }
-  const cls = document.getElementById('gClass').value;
-  let startDateStr, endDateStr;
-  if (cls.includes("เทอม 2")) { startDateStr = TERM_DATES['t2_start']; endDateStr = TERM_DATES['t2_end']; }
-  else if (cls.includes("เทอม 1")) { startDateStr = TERM_DATES['t1_start']; endDateStr = TERM_DATES['t1_end']; }
-  else { startDateStr = TERM_DATES['t1_start']; endDateStr = TERM_DATES['t2_end']; }
-  if (!startDateStr || !endDateStr) return;
-
-  const parseDateAD = (dStr) => {
-    const parts = String(dStr).split(/[\/\-]/);
-    if (parts.length === 3) {
-      let d = parseInt(parts[0], 10), m = parseInt(parts[1], 10) - 1, y = parseInt(parts[2], 10);
-      if (y > 2500) y -= 543;
-      return new Date(y, m, d);
-    }
-    return new Date();
-  };
-  const formatDateBE = (dateObj) => {
-    const dd = String(dateObj.getDate()).padStart(2, '0');
-    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const yyyy = dateObj.getFullYear() + 543;
-    return `${dd}/${mm}/${yyyy}`;
-  };
-  const start = parseDateAD(startDateStr);
-  const end = parseDateAD(endDateStr);
-  start.setHours(0,0,0,0); end.setHours(0,0,0,0);
-  const schedule = {
-    1: Number(document.getElementById('sch_mon').value) || 0,
-    2: Number(document.getElementById('sch_tue').value) || 0,
-    3: Number(document.getElementById('sch_wed').value) || 0,
-    4: Number(document.getElementById('sch_thu').value) || 0,
-    5: Number(document.getElementById('sch_fri').value) || 0,
-    0: 0, 6: 0
-  };
-  const holidaySet = new Set();
-  HOLIDAYS.forEach(h => { if (h.type === 'holiday') holidaySet.add(h.date); });
-  let totalHours = 0;
-  const current = new Date(start);
-  while (current <= end) {
-    const currentBEStr = formatDateBE(current);
-    if (!holidaySet.has(currentBEStr)) totalHours += schedule[current.getDay()];
-    current.setDate(current.getDate() + 1);
-  }
-  totalHours += Number(document.getElementById('ci_manual_adjust').value) || 0;
-  document.getElementById('ci_total_hours').textContent = totalHours;
+  $('ci_total_hours').textContent = hrs + (Number($('ci_manual_adjust').value) || 0);
 }
 
-function escHtml(v) {
-  return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-
-function getAssPrintRows(mode = 'subject') {
-  const tableSelector = mode === 'homeroom' ? '#hrAssBody' : '#assBody';
-  const rows = [];
-  document.querySelectorAll(`${tableSelector} tr[data-hsid]`).forEach((tr, idx) => {
-    rows.push({
-      no: idx + 1,
-      name: tr.querySelector('.ass-name')?.textContent?.trim() || '',
-      charScores: [...tr.querySelectorAll('.c-inp')].map(i => i.value || ''),
-      charTotal: tr.querySelector('.c-total')?.textContent?.trim() || '-',
-      charResult: tr.querySelector('.c-result')?.textContent?.trim() || '-',
-      readScores: [...tr.querySelectorAll('.r-inp')].map(i => i.value || ''),
-      readTotal: tr.querySelector('.r-total')?.textContent?.trim() || '-',
-      readResult: tr.querySelector('.r-result')?.textContent?.trim() || '-',
-      skillScores: [...tr.querySelectorAll('.s-inp')].map(i => i.value || ''),
-      skillTotal: tr.querySelector('.s-total')?.textContent?.trim() || '-',
-      skillResult: tr.querySelector('.s-result')?.textContent?.trim() || '-'
-    });
-  });
-  return rows;
-}
-
-function buildPrintTable(title, headers, rows, scoreKey, totalKey, resultKey, themeClass) {
-  const headCols = headers.map(h => `<th class="v">${escHtml(h)}</th>`).join('');
-  const bodyRows = rows.map(r => {
-    const vals = r[scoreKey] || [];
-    const scoreTds = vals.map(v => `<td>${escHtml(v || '-')}</td>`).join('');
-    return `<tr><td class="col-no">${r.no}</td><td class="col-name">${escHtml(r.name)}</td>${scoreTds}<td class="col-total">${escHtml(r[totalKey] || '-')}</td><td class="col-result">${escHtml(r[resultKey] || '-')}</td></tr>`;
+function renderHolisticTable(students, containerId, tableId, mode) {
+  const container = $(containerId); if (!container) return;
+  if (!students.length) return container.innerHTML = `<div class="text-center text-muted py-3">ไม่พบข้อมูลผู้เรียน</div>`;
+  const htmlRows = students.map((s, idx) => {
+    const h = (mode === 'homeroom' ? s.holistic_homeroom : s.holistic_subject) || {};
+    const cVals = h.char_scores?.length === 8 ? h.char_scores : Array(8).fill(""), rVals = h.read_scores?.length === 5 ? h.read_scores : Array(5).fill(""), sVals = h.skill_scores?.length === 5 ? h.skill_scores : Array(5).fill("");
+    const mkInp = (vals, t) => vals.map(v => `<td><input type="number" class="inp-ass ${t}-inp" min="0" max="3" value="${v}" oninput="calcAssRow(this, '${t}')"></td>`).join('');
+    return `<tr data-hsid="${s.studentId}"><td class="ass-no">${idx + 1}</td><td class="ass-name" style="text-align:left;font-weight:600;background:#fff;">${s.name}</td>
+      ${mkInp(cVals, 'c')}<td class="bg-sum c-total">-</td><td><span class="res-badge c-result">-</span><input type="hidden" class="c-final-val" value="${h.char || ''}"></td>
+      ${mkInp(rVals, 'r')}<td class="bg-sum r-total">-</td><td><span class="res-badge r-result">-</span><input type="hidden" class="r-final-val" value="${h.read || ''}"></td>
+      ${mkInp(sVals, 's')}<td class="bg-sum s-total">-</td><td><span class="res-badge s-result">-</span><input type="hidden" class="s-final-val" value="${h.skill || ''}"></td></tr>`;
   }).join('');
-  return `
-    <section class="print-page">
-      <div class="report-head">
-        <div class="report-school">โรงเรียนบ้านคลอง 14</div>
-        <div class="report-title">${escHtml(title)}</div>
-        <div class="report-meta">
-          ชั้น ${escHtml(document.getElementById('gClass')?.value || '-')} &nbsp;|&nbsp;
-          ปีการศึกษา ${escHtml(document.getElementById('gYear')?.value || '-')} &nbsp;|&nbsp;
-          รายวิชา ${escHtml(document.getElementById('gSubj')?.value || '-')}
-        </div>
-      </div>
-      <table class="print-tbl ${themeClass}">
-        <thead><tr><th class="col-no">ที่</th><th class="col-name">ชื่อ-นามสกุล</th>${headCols}<th class="col-total">รวม</th><th class="col-result">ผล</th></tr></thead>
-        <tbody>${bodyRows}</tbody>
-      </table>
-    </section>`;
+  
+  container.innerHTML = `<div class="ass-wrap"><table class="ass-tbl" id="${tableId}">
+    <thead><tr><th rowspan="2" class="ass-no" style="width:40px;">ที่</th><th rowspan="2" class="ass-name" style="min-width:140px;">ชื่อ-นามสกุล</th><th colspan="10" class="bg-char">คุณลักษณะอันพึงประสงค์</th><th colspan="7" class="bg-rw">อ่าน คิด วิเคราะห์ เขียน</th><th colspan="7" style="background:#d1d5db;">สมรรถนะสำคัญ</th></tr>
+    <tr>${Array(8).fill(0).map((_,i)=>`<th class="bg-char v-text">${i+1}.</th>`).join('')}<th class="bg-sum v-text">รวม</th><th class="bg-sum">ผล</th>
+    ${Array(5).fill(0).map((_,i)=>`<th class="bg-rw v-text">${i+1}.</th>`).join('')}<th class="bg-sum v-text">รวม</th><th class="bg-sum">ผล</th>
+    ${Array(5).fill(0).map((_,i)=>`<th class="v-text" style="background:#e5e7eb;">${i+1}.</th>`).join('')}<th class="bg-sum v-text">รวม</th><th class="bg-sum">ผล</th></tr></thead>
+    <tbody>${htmlRows}</tbody></table></div>`;
+  $$(`#${tableId} tr[data-hsid]`).forEach(tr => { ['c','r','s'].forEach(t => calcAssRow(tr.querySelector(`.${t}-inp`), t)); });
 }
 
-function printHolisticReport(mode = 'subject') {
-  const rows = getAssPrintRows(mode);
-  const reportScope = mode === 'homeroom' ? 'ประจำชั้น' : 'รายวิชา';
-  if (!rows.length) { toast('ไม่พบข้อมูลสำหรับพิมพ์', 'error'); return; }
-  const page1 = buildPrintTable(`รายงานประเมินคุณลักษณะอันพึงประสงค์ (${reportScope})`,['1.รักชาติฯ','2.ซื่อสัตย์ฯ','3.มีวินัย','4.ใฝ่เรียนรู้','5.อยู่อย่างพอเพียง','6.มุ่งมั่นทำงาน','7.รักความเป็นไทย','8.มีจิตสาธารณะ'],rows,'charScores','charTotal','charResult','theme-char');
-  const page2 = buildPrintTable(`รายงานประเมินการอ่าน คิดวิเคราะห์ และเขียน (${reportScope})`,['1.สามารถอ่านฯ','2.สามารถจับประเด็นฯ','3.สามารถวิเคราะห์ฯ','4.สามารถประเมินฯ','5.สามารถเขียนฯ'],rows,'readScores','readTotal','readResult','theme-read');
-  const page3 = buildPrintTable(`รายงานประเมินสมรรถนะสำคัญของผู้เรียน (${reportScope})`,['1.สื่อสาร','2.คิด','3.แก้ปัญหา','4.ทักษะชีวิต','5.เทคโนโลยี'],rows,'skillScores','skillTotal','skillResult','theme-skill');
-  const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>รายงานประเมินผู้เรียน</title>
-    <style>@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{font-family:"Sarabun",sans-serif;margin:0;color:#111827;background:#fff}
-    .print-page{width:100%;min-height:100vh;page-break-after:always;padding:4mm 2mm}.print-page:last-child{page-break-after:auto}
-    .report-head{text-align:center;margin-bottom:10px}.report-school{font-size:18px;font-weight:700}.report-title{font-size:20px;font-weight:800;margin-top:2px}
-    .report-meta{font-size:12px;margin-top:4px;color:#374151}.print-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}
-    .print-tbl th,.print-tbl td{border:1px solid #9ca3af;padding:6px 4px;text-align:center;vertical-align:middle;word-wrap:break-word}
-    .print-tbl th{font-weight:700}.print-tbl .col-no{width:36px}.print-tbl .col-name{width:230px;text-align:left;font-weight:600}
-    .print-tbl .col-total{width:55px;font-weight:700;background:#f3f4f6}.print-tbl .col-result{width:78px;font-weight:700;background:#f9fafb}
-    .theme-char thead th{background:#fef08a}.theme-read thead th{background:#fdba74}.theme-skill thead th{background:#d1d5db}</style>
-    </head><body>${page1}${page2}${page3}</body></html>`;
-  const printWin = window.open('', '_blank');
-  if (!printWin) { toast('เบราว์เซอร์บล็อก popup กรุณาอนุญาต', 'error'); return; }
-  writeToPrintWindow(printWin, html, `รายงานประเมิน_${reportScope}`);
+function calcAssRow(input, type) {
+  if (!input) return; const tr = input.closest('tr'); if (!tr) return;
+  let sum = 0, count = 0;
+  tr.querySelectorAll(`.${type}-inp`).forEach(inp => { let v = parseFloat(inp.value); if (!isNaN(v)) { if (v > 3) { inp.value = 3; v = 3; } if (v < 0) { inp.value = 0; v = 0; } sum += v; count++; } });
+  if (document.activeElement === input && input.value.length >= 1) {
+    let nx = input.closest('td').nextElementSibling, nxInp = null;
+    while (nx && !nxInp) { nxInp = nx.querySelector('.inp-ass'); nx = nx.nextElementSibling; }
+    if (nxInp) { nxInp.focus(); nxInp.select(); }
+  }
+  const tEl = tr.querySelector(`.${type}-total`), rBadge = tr.querySelector(`.${type}-result`), fVal = tr.querySelector(`.${type}-final-val`);
+  if (!count) { if(tEl) tEl.textContent="-"; if(rBadge) { rBadge.textContent="-"; rBadge.className=`res-badge ${type}-result`; } if(fVal) fVal.value=""; return; }
+  const avg = sum / count;
+  const levels =[{ v: 2.5, t: "ดีเยี่ยม", c: "res-3", p: "ดีเยี่ยม (3)" }, { v: 1.5, t: "ดี", c: "res-2", p: "ดี (2)" }, { v: 1.0, t: "ผ่าน", c: "res-1", p: "ผ่าน (1)" }, { v: 0, t: "ไม่ผ่าน", c: "res-0", p: "ไม่ผ่าน (0)" }];
+  const l = levels.find(x => avg >= x.v);
+  if (tEl) tEl.textContent = sum;
+  if (rBadge) { rBadge.textContent = l.t; rBadge.className = `res-badge ${type}-result ${l.c}`; }
+  if (fVal) fVal.value = l.p;
 }
 
-function switchHolisticTab(mode, btn) {
-  const tabs = document.querySelectorAll('#holisticTabs .ttab');
-  tabs.forEach(t => t.classList.remove('on'));
-  if (btn) btn.classList.add('on');
-  document.getElementById('holisticSubjectPanel').style.display = mode === 'subject' ? '' : 'none';
-  document.getElementById('holisticHomeroomPanel').style.display = mode === 'homeroom' ? '' : 'none';
+async function saveHolisticData(mode) {
+  const records =[];
+  $$(`${mode === 'homeroom' ? '#hrAssBody' : '#assBody'} tr[data-hsid]`).forEach(tr => records.push({
+    studentId: tr.getAttribute('data-hsid'),
+    char_scores: [...tr.querySelectorAll('.c-inp')].map(i => i.value), char_total: tr.querySelector('.c-total').textContent, char: tr.querySelector('.c-final-val').value,
+    read_scores:[...tr.querySelectorAll('.r-inp')].map(i => i.value), read_total: tr.querySelector('.r-total').textContent, read: tr.querySelector('.r-final-val').value,
+    skill_scores:[...tr.querySelectorAll('.s-inp')].map(i => i.value), skill_total: tr.querySelector('.s-total').textContent, skill: tr.querySelector('.s-final-val').value
+  }));
+  if (!records.length) return Utils.toast('ไม่พบข้อมูล', 'error');
+  Utils.showLoading('กำลังบันทึก...');
+  try { Utils.toast('✅ ' + await api('saveHolistic', { mode, year: $('gYear').value, classroom: $('gClass').value, subject: $('gSubj').value, records })); } catch (e) { Utils.toast(e.message, 'error'); }
+  Utils.hideLoading();
+}
+
+// =====================================================
+// 12. PDF & EXPORT REPORTING
+// =====================================================
+const escHtml = v => String(v ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+function writeToPrintWindow(win, html, title) {
+  if (!win) return;
+  try { win.document.open(); win.document.write(html.includes('<html') ? html : `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${title}</title></head><body>${html}</body></html>`); win.document.close(); } catch (e) { Utils.toast('เปิดหน้าพิมพ์ไม่ได้', 'error'); }
+}
+
+async function printRowPDF(sid, type = 'year') {
+  const win = window.open('', '_blank'); if (!win) return Utils.toast('อนุญาต Popup ด้วยครับ', 'error');
+  win.document.write('<html><head><meta charset="UTF-8"></head><body style="text-align:center;padding-top:80px;color:#666;font-family:sans-serif;"><h2>⏳ กำลังสร้างเอกสาร...</h2></body></html>');
+  Utils.showLoading('กำลังสร้างเอกสาร...');
+  try { writeToPrintWindow(win, await api('generateStudentHTML', { year: $('gYear').value, classroom: $('gClass').value, studentId: sid, ignoreR: App.ignoreR, reportType: type }), `ปพ6_${sid}`); } 
+  catch (e) { win.close(); Utils.toast(e.message, 'error'); } Utils.hideLoading();
+}
+
+async function printClassPDF(type = 'year') {
+  if (!confirm(`พิมพ์รายงาน ปพ.6 ${type === 'term1' ? 'เทอม 1' : 'ทั้งปี'} ?`)) return;
+  const win = window.open('', '_blank'); if (!win) return Utils.toast('อนุญาต Popup ด้วยครับ', 'error');
+  win.document.write('<html><head><meta charset="UTF-8"></head><body style="text-align:center;padding-top:80px;color:#666;font-family:sans-serif;"><h2>⏳ กำลังสร้างเอกสาร...</h2></body></html>');
+  Utils.showLoading('กำลังสร้างเอกสาร...');
+  try { writeToPrintWindow(win, await api('generateClassHTML', { year: $('gYear').value, classroom: $('gClass').value, ignoreR: App.ignoreR, reportType: type }), `ปพ6_ทั้งห้อง`); } 
+  catch (e) { win.close(); Utils.toast(e.message, 'error'); } Utils.hideLoading();
+}
+
+async function printSummaryPDF(type = 'year') {
+  closeSummaryModeModal(); if (!confirm(`สร้างตารางสรุปเกรดรวม ?`)) return;
+  const win = window.open('', '_blank'); if (!win) return Utils.toast('อนุญาต Popup ด้วยครับ', 'error');
+  win.document.write('<html><head><meta charset="UTF-8"></head><body style="text-align:center;padding-top:80px;color:#666;font-family:sans-serif;"><h2>⏳ กำลังรวบรวมข้อมูล...</h2></body></html>');
+  Utils.showLoading('กำลังสร้างรายงาน...');
+  try { writeToPrintWindow(win, await api('generateSummaryHTML', { year: $('gYear').value, classroom: $('gClass').value, ignoreR: App.ignoreR, reportType: type }), `สรุปผลการเรียน`); } 
+  catch (e) { win.close(); Utils.toast(e.message, 'error'); } Utils.hideLoading();
 }
 
 async function printPp5SubjectPDF() {
-  const year = document.getElementById('gYear').value;
-  const classroom = document.getElementById('gClass').value;
-  const subject = document.getElementById('gSubj').value;
-  if (!classroom.includes('เทอม')) return toast('ปพ.5 เวอร์ชันนี้เริ่มใช้สำหรับฝั่งมัธยมก่อน', 'warning');
-  if (!subject || subject === '-- ไม่พบวิชา --') return toast('กรุณาเลือกรายวิชา', 'error');
-  const printWin = window.open('', '_blank');
-  if (!printWin) { toast('เบราว์เซอร์บล็อก popup กรุณาอนุญาต', 'error'); return; }
-  printWin.document.write('<html><head><meta charset="UTF-8"><title>กำลังโหลด...</title></head><body style="font-family:sans-serif;text-align:center;padding-top:80px;color:#666;"><h2>⏳ กำลังสร้าง ปพ.5 ...</h2></body></html>');
-  pg('กำลังสร้าง ปพ.5 ...');
+  if (!$('gClass').value.includes('เทอม')) return Utils.toast('ปพ.5 เวอร์ชันนี้ใช้กับมัธยมก่อน', 'warning');
+  const win = window.open('', '_blank'); if (!win) return Utils.toast('อนุญาต Popup ด้วยครับ', 'error');
+  win.document.write('<html><head><meta charset="UTF-8"></head><body style="text-align:center;padding-top:80px;color:#666;font-family:sans-serif;"><h2>⏳ กำลังสร้าง ปพ.5 ...</h2></body></html>');
+  Utils.showLoading('กำลังสร้าง ปพ.5 ...');
+  try { writeToPrintWindow(win, await api('generatePp5SubjectHTML', { year: $('gYear').value, classroom: $('gClass').value, subject: $('gSubj').value }), `ปพ5`); } 
+  catch (e) { win.close(); Utils.toast(e.message, 'error'); } Utils.hideLoading();
+}
+
+async function exportSummaryCSV() {
+  if (!confirm(`ดาวน์โหลดไฟล์ Excel (CSV)?`)) return; Utils.showLoading('เตรียมไฟล์...');
   try {
-    const html = await api('generatePp5SubjectHTML', { year, classroom, subject });
-    writeToPrintWindow(printWin, html, `ปพ5_${subject}_${classroom}_ปี${year}`);
-    toast('เปิดหน้าพิมพ์ ปพ.5 แล้ว');
-  } catch (e) {
-    printWin.close();
-    toast('เกิดข้อผิดพลาด: ' + e.message, 'error');
-  }
-  pg_();
+    const bytes = new Uint8Array(atob(await api('generateSummaryCSV', { year: $('gYear').value, classroom: $('gClass').value, ignoreR: App.ignoreR })).split('').map(c => c.charCodeAt(0)));
+    const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([bytes], { type: 'text/csv;charset=utf-8;' }));
+    link.download = `สรุปผลการเรียน_${$('gClass').value}_ปี${$('gYear').value}.csv`;
+    document.body.appendChild(link); link.click(); link.remove(); Utils.toast('✅ ดาวน์โหลดสำเร็จ');
+  } catch (e) { Utils.toast(e.message, 'error'); } Utils.hideLoading();
 }
 
-function writeToPrintWindow(win, html, fileName) {
-  if (!win) return;
-  try {
-    const finalHtml = html.includes('<html') ? html :
-      `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${fileName || 'report'}</title></head><body>${html}</body></html>`;
-    win.document.open();
-    win.document.write(finalHtml);
-    win.document.close();
-  } catch (err) {
-    console.error(err);
-    toast('เกิดข้อผิดพลาดในการเปิดหน้าพิมพ์', 'error');
-  }
+function printHolisticReport(mode) {
+  const rows =[...$$(`${mode === 'homeroom' ? '#hrAssBody' : '#assBody'} tr[data-hsid]`)].map((tr, i) => ({ no: i + 1, name: tr.querySelector('.ass-name')?.textContent || '', cS: [...tr.querySelectorAll('.c-inp')].map(i=>i.value), cT: tr.querySelector('.c-total')?.textContent||'-', cR: tr.querySelector('.c-result')?.textContent||'-', rS: [...tr.querySelectorAll('.r-inp')].map(i=>i.value), rT: tr.querySelector('.r-total')?.textContent||'-', rR: tr.querySelector('.r-result')?.textContent||'-', sS: [...tr.querySelectorAll('.s-inp')].map(i=>i.value), sT: tr.querySelector('.s-total')?.textContent||'-', sR: tr.querySelector('.s-result')?.textContent||'-' }));
+  if (!rows.length) return Utils.toast('ไม่พบข้อมูล', 'error');
+  const mkTbl = (tit, hdrs, kS, kT, kR, cls) => `<section class="print-page"><div class="report-head"><div class="report-school">โรงเรียนบ้านคลอง 14</div><div class="report-title">${tit}</div><div class="report-meta">ชั้น ${$('gClass').value} | รายวิชา ${$('gSubj').value}</div></div><table class="print-tbl ${cls}"><thead><tr><th class="col-no">ที่</th><th class="col-name">ชื่อ-นามสกุล</th>${hdrs.map(h=>`<th>${h}</th>`).join('')}<th class="col-total">รวม</th><th class="col-result">ผล</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.no}</td><td style="text-align:left">${escHtml(r.name)}</td>${r[kS].map(v=>`<td>${v||'-'}</td>`).join('')}<td>${r[kT]}</td><td>${r[kR]}</td></tr>`).join('')}</tbody></table></section>`;
+  const win = window.open('', '_blank'); if (!win) return;
+  writeToPrintWindow(win, `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>รายงานประเมิน</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:"Sarabun",sans-serif;margin:0;color:#111827}.print-page{page-break-after:always;padding:4mm 2mm}.report-head{text-align:center;margin-bottom:10px}.print-tbl{width:100%;border-collapse:collapse;font-size:12px}.print-tbl th,.print-tbl td{border:1px solid #9ca3af;padding:6px;text-align:center}.print-tbl .col-no{width:36px}.print-tbl .col-name{width:230px}.theme-char thead th{background:#fef08a}.theme-read thead th{background:#fdba74}.theme-skill thead th{background:#d1d5db}</style></head><body>${mkTbl('ประเมินคุณลักษณะฯ',['1','2','3','4','5','6','7','8'],'cS','cT','cR','theme-char')}${mkTbl('อ่าน คิด วิเคราะห์ เขียน',['1','2','3','4','5'],'rS','rT','rR','theme-read')}${mkTbl('สมรรถนะสำคัญ',['1','2','3','4','5'],'sS','sT','sR','theme-skill')}</body></html>`, 'รายงานประเมิน');
 }
 
-function showScoreMain(btn) {
-  const scoreArea = document.getElementById('scoreMainArea');
-  const settingsArea = document.getElementById('settingsContentArea');
-  if (scoreArea) scoreArea.style.display = 'block';
-  if (settingsArea) settingsArea.style.display = 'none';
-  document.querySelectorAll('.settings-panel').forEach(panel => panel.classList.remove('active'));
-  document.querySelectorAll('#settingsTabs .settings-tab').forEach(tab => tab.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-}
+// =====================================================
+// 13. UI NAVIGATION & KEYBOARD EVENTS
+// =====================================================
+function switchHolisticTab(mode, btn) { $$('#holisticTabs .ttab').forEach(t => t.classList.remove('on')); if (btn) btn.classList.add('on'); $('holisticSubjectPanel').style.display = mode === 'subject' ? '' : 'none'; $('holisticHomeroomPanel').style.display = mode === 'homeroom' ? '' : 'none'; }
+function showScoreMain(btn) { if($('scoreMainArea')) $('scoreMainArea').style.display='block'; if($('settingsContentArea')) $('settingsContentArea').style.display='none'; $$('.settings-panel').forEach(p=>p.classList.remove('active')); $$('#settingsTabs .settings-tab').forEach(t=>t.classList.remove('active')); if(btn) btn.classList.add('active'); }
+function switchSettingsTab(tid, btn) { if($('scoreMainArea')) $('scoreMainArea').style.display='none'; if($('settingsContentArea')) $('settingsContentArea').style.display='block'; $$('.settings-panel').forEach(p=>p.classList.remove('active')); $$('#settingsTabs .settings-tab').forEach(t=>t.classList.remove('active')); if($('panel_'+tid)) $('panel_'+tid).classList.add('active'); if(btn) btn.classList.add('active'); }
+function openSummaryModeModal() { if($('gClass').value.includes('เทอม')) return printSummaryPDF('term1'); $('summaryModeModal').style.display='flex'; }
+function closeSummaryModeModal() { $('summaryModeModal').style.display='none'; }
+$('summaryModeModal')?.addEventListener('click', function(e) { if(e.target===this) closeSummaryModeModal(); });
 
-function switchSettingsTab(tabId, btn) {
-  const scoreArea = document.getElementById('scoreMainArea');
-  const settingsArea = document.getElementById('settingsContentArea');
-  if (scoreArea) scoreArea.style.display = 'none';
-  if (settingsArea) settingsArea.style.display = 'block';
-  document.querySelectorAll('.settings-panel').forEach(panel => panel.classList.remove('active'));
-  document.querySelectorAll('#settingsTabs .settings-tab').forEach(tab => tab.classList.remove('active'));
-  const panel = document.getElementById('panel_' + tabId);
-  if (panel) panel.classList.add('active');
-  else console.warn('ไม่พบ panel:', 'panel_' + tabId);
-  if (btn) btn.classList.add('active');
+function updateScoreInputState(inp) {
+  if (!inp) return; inp.classList.remove('score-empty', 'score-partial', 'score-full');
+  const v = Number(inp.value), mx = Number(inp.getAttribute('max')) || 0;
+  if (inp.value.trim() === '' || isNaN(v) || v <= 0) inp.classList.add('score-empty');
+  else if (mx > 0 && v >= mx) inp.classList.add('score-full');
+  else inp.classList.add('score-partial');
 }
+function refreshAllScoreInputStates(s = document) { s.querySelectorAll('.sub1, .sub2, .s-t1e, .s-t2e').forEach(updateScoreInputState); }
 
-function updateScoreInputState(input) {
-  if (!input) return;
-  input.classList.remove('score-empty', 'score-partial', 'score-full');
-  const raw = String(input.value ?? '').trim();
-  const val = Number(raw);
-  const max = Number(input.getAttribute('max')) || 0;
-  if (raw === '' || isNaN(val) || val <= 0) { input.classList.add('score-empty'); return; }
-  if (max > 0 && val >= max) { input.classList.add('score-full'); return; }
-  input.classList.add('score-partial');
-}
-
-function refreshAllScoreInputStates(scope = document) {
-  scope.querySelectorAll('.sub1, .sub2, .s-t1e, .s-t2e').forEach(updateScoreInputState);
-}
-
-function openSummaryModeModal() {
-  const classroom = document.getElementById('gClass').value || '';
-  if (classroom.includes('เทอม')) { printSummaryPDF('term1'); return; }
-  document.getElementById('summaryModeModal').style.display = 'flex';
-}
-
-function closeSummaryModeModal() {
-  document.getElementById('summaryModeModal').style.display = 'none';
-}
-
-document.getElementById('summaryModeModal')?.addEventListener('click', function(e) {
-  if (e.target === this) closeSummaryModeModal();
+document.addEventListener('keydown', e => {
+  if (!['Enter','ArrowDown','ArrowUp'].includes(e.key) || !document.activeElement.classList.contains('sinput')) return;
+  e.preventDefault(); const tr = document.activeElement.closest('tr'), rows = Array.from(tr.closest('tbody').querySelectorAll('tr'));
+  const target = rows[rows.indexOf(tr) + (e.key === 'ArrowUp' ? -1 : 1)]?.cells[document.activeElement.closest('td').cellIndex]?.querySelector('.sinput');
+  if (target) { target.focus(); target.select(); }
 });
+
 </script>
 </body>
 </html>
