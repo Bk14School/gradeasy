@@ -3406,9 +3406,10 @@ function getShortThaiDate(dStr) {
 }
 
 // 1. ฟังก์ชันคำนวณวันที่เรียนอัตโนมัติ (ตัดวันหยุด)
+// ฟังก์ชันคำนวณวันเรียนจริงจากวันเปิด-ปิดเทอม
 function calcGuidanceSchedule() {
-  const term = $('guide_term').value;
-  const dayOfWeek = parseInt($('guide_day').value); // 1=จันทร์, 2=อังคาร... 5=ศุกร์
+  const term = $('guide_term').value; // เทอม 1 หรือ 2
+  const dayOfWeek = parseInt($('guide_day').value); // 1=จันทร์ ... 5=ศุกร์
   
   const startD = App.termDates[`t${term}_start`];
   const endD = App.termDates[`t${term}_end`];
@@ -3417,34 +3418,27 @@ function calcGuidanceSchedule() {
   
   if (startD && endD) {
     const parseD = (str) => {
-      const p = str.split(/[\/\-]/); 
-      // แปลง พ.ศ. เป็น ค.ศ. สำหรับ JS Date
-      return new Date(parseInt(p[2]) > 2500 ? parseInt(p[2]) - 543 : parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0])); 
+      const p = str.split(/[\/\-]/);
+      return new Date(parseInt(p[2]) > 2500 ? parseInt(p[2]) - 543 : parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
     };
     
-    const start = parseD(startD);
+    let cur = parseD(startD);
     const end = parseD(endD);
-    start.setHours(0,0,0,0); end.setHours(0,0,0,0);
-    
     const hSet = new Set((App.holidays||[]).filter(h => h.type === 'holiday').map(h => h.date));
-    let cur = new Date(start);
     
     while (cur <= end) {
-      if (cur.getDay() === dayOfWeek) { // ตรงกับวันที่สอน
+      if (cur.getDay() === dayOfWeek) {
         const dStr = `${String(cur.getDate()).padStart(2,'0')}/${String(cur.getMonth()+1).padStart(2,'0')}/${cur.getFullYear()+543}`;
-        if (!hSet.has(dStr)) { // ไม่ใช่วันหยุด
-          App.guidanceDates.push(dStr);
-        }
+        if (!hSet.has(dStr)) App.guidanceDates.push(dStr);
       }
       cur.setDate(cur.getDate() + 1);
     }
-  } else {
-    // ถ้าไม่มีการตั้งค่าเปิดปิดเทอม ให้สร้างวันหลอกๆ ไว้ 20 วัน
-    for(let i=1; i<=20; i++) App.guidanceDates.push(`ครั้งที่ ${i}`);
   }
-
-  // อัปเดต UI ให้แสดงจำนวนครั้งที่คำนวณได้
+  
+  // อัปเดตตัวเลขจำนวนคาบในหน้าจอ
   if ($('guide_total_show')) $('guide_total_show').textContent = App.guidanceDates.length;
+  if ($('guidance_max_time')) $('guidance_max_time').value = App.guidanceDates.length;
+  
   renderGuidanceTable(true); // วาดตารางใหม่
 }
 
@@ -3645,6 +3639,16 @@ function printGuidanceReport() {
         /* สไตล์ตารางเช็คชื่อหน้า 4 (คอลัมน์เล็กๆ) */
         .att-table th, .att-table td { padding: 3px; font-size: 11px; }
         .att-col { width: 18px; }
+          /* เพิ่มสไตล์หมุน 90 องศา */
+  .rotate-date { 
+    writing-mode: vertical-lr; 
+    transform: rotate(180deg); 
+    white-space: nowrap; 
+    height: 100px; 
+    text-align: left; 
+    font-size: 10px;
+    padding: 5px 2px;
+  }
       </style>
     </head>
     <body>
@@ -3751,33 +3755,38 @@ function printGuidanceReport() {
           ระบุสาเหตุ ป/ล/ข ด้วยปากกาแดง นักเรียนที่ไม่เข้าร่วมกิจกรรมในแต่ละวัน
         </div>
 
-        <table class="att-table">
-          <thead>
-            <tr>
-              <th rowspan="2" style="width:25px;">ที่</th>
-              <th rowspan="2" style="text-align:left; padding-left:5px; min-width:140px;">ชื่อ – สกุล</th>
-              <th colspan="${maxTime}">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>
-              <th rowspan="2" style="width:35px;">รวม</th>
-              <th rowspan="2" style="width:35px;">ผล<br>ผ่าน</th>
-              <th rowspan="2" style="width:35px;">ผล<br>ไม่ผ่าน</th>
-            </tr>
-            <tr>
-              ${Array(maxTime).fill(0).map((_, i) => `<th class="att-col">${i+1}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(r => `
-              <tr>
-                <td>${r.no}</td>
-                <td style="text-align:left; padding-left:5px;">${r.name}</td>
-                ${Array(maxTime).fill('<td class="att-col"></td>').join('')}
-                <td class="fw-bold">${r.attended}</td>
-                <td class="fw-bold">${r.result === 'ผ่าน' ? '✓' : ''}</td>
-                <td class="fw-bold">${r.result !== 'ผ่าน' ? '✓' : ''}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+       <table class="att-table">
+  <thead>
+    <tr>
+      <th rowspan="2">ที่</th>
+      <th rowspan="2" style="min-width:120px;">ชื่อ – สกุล</th>
+      <th colspan="${App.guidanceDates.length}">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>
+      <th rowspan="2">รวม</th>
+      <th rowspan="2">ผล<br>ผ่าน</th>
+      <th rowspan="2">ผล<br>ไม่ผ่าน</th>
+    </tr>
+    <tr>
+      ${App.guidanceDates.map((d, i) => {
+        const parts = d.split('/');
+        const mNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ล.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+        const mName = mNames[parseInt(parts[1])-1];
+        return `<th class="rotate-date"><div>${parseInt(parts[0])} ${mName}</div></th>`;
+      }).join('')}
+    </tr>
+  </thead>
+  <tbody>
+    ${rows.map(r => `
+      <tr>
+        <td>${r.no}</td>
+        <td style="text-align:left; padding-left:5px;">${r.name}</td>
+        ${App.guidanceDates.map(() => `<td class="att-col"></td>`).join('')}
+        <td class="fw-bold">${r.attended}</td>
+        <td class="fw-bold">${r.result === 'ผ่าน' ? '✓' : ''}</td>
+        <td class="fw-bold">${r.result !== 'ผ่าน' ? '✓' : ''}</td>
+      </tr>
+    `).join('')}
+  </tbody>
+</table>
       </div>
 
     </body>
