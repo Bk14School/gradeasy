@@ -2872,13 +2872,20 @@ document.addEventListener('keydown', e => {
 // 1. ฟังก์ชันแสดงตาราง RTW
 // 1. ฟังก์ชันแสดงตาราง RTW และเกณฑ์การประเมินบนหน้าจอ
 // 1. ฟังก์ชันแสดงตาราง RTW และเกณฑ์การประเมินบนหน้าจอ
+// 1. ฟังก์ชันแสดงตาราง RTW และเกณฑ์การประเมินบนหน้าจอ
 function renderRTWTable() {
   const container = $('rtwContainer');
   if (!App.students.length) return;
 
   const cls = $('gClass').value;
   
-  // --- ส่วนที่ 1: กำหนดตัวชี้วัดตามระดับชั้น ---
+  // พยายามดึงชื่อครูประจำชั้นจากระบบ (ถ้า Backend ส่งมาใน config หรือใช้ชื่อ User ปัจจุบันถ้ารับผิดชอบชั้นนี้)
+  let hrTeacherStr = "";
+  if (App.user && App.user.classroom === cls) {
+    hrTeacherStr = App.user.name; // ถ้าครูที่ล็อกอินเป็นครูประจำชั้นห้องนี้ ให้ดึงชื่อมาเลย
+  }
+
+  // กำหนดตัวชี้วัดตามระดับชั้น
   let indicators = [];
   let title = "";
   if (cls.match(/[ป].[1-3]/)) {
@@ -2892,13 +2899,21 @@ function renderRTWTable() {
     indicators = ["1. คัดสรรสื่อเพื่อหาข้อมูลสารสนเทศตามวัตถุประสงค์", "2. จับประเด็นสำคัญ ประเด็นสนับสนุน และโต้แย้ง", "3. วิเคราะห์ วิจารณ์ความสมเหตุสมผลน่าเชื่อถือ", "4. สรุปคุณค่า แนวคิด แง่คิดจากการอ่าน", "5. สรุป อภิปราย ขยายความ แสดงความเห็นโต้แย้งโดยการเขียน"];
   }
 
-  // สร้างกล่องแสดงเกณฑ์บนหน้าจอ UI
+  // สร้างหน้าจอ UI (กล่องเกณฑ์ + ช่องใส่ชื่อครูประจำชั้น)
   const criteriaHtml = `
-    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:15px; margin-bottom:15px; font-size:0.85rem; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:15px; margin-bottom:15px; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+      
+      <!-- ส่วนที่เพิ่ม: ดึง/แก้ไข ชื่อครูประจำชั้น -->
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; background:#fff; padding:10px 15px; border-radius:6px; border:1px solid #e2e8f0;">
+        <label style="font-weight:bold; color:#1e40af; margin:0; white-space:nowrap; font-size:0.9rem;">👨‍🏫 ครูประจำชั้น:</label>
+        <input type="text" id="rtw_homeroom_teacher" value="${hrTeacherStr}" style="flex:1; max-width:400px; padding:6px 10px; border:1px solid #94a3b8; border-radius:4px; font-weight:bold; font-family:inherit; font-size:0.9rem;" placeholder="นาย ก / นาง ข">
+        <span style="font-size:0.75rem; color:#64748b;">(ดึงจากระบบอัตโนมัติ หากมี 2 คน ให้คั่นด้วย / หรือ และ)</span>
+      </div>
+
       <div style="font-weight:bold; color:#0f172a; margin-bottom:10px; font-size:0.95rem; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">
         📖 เกณฑ์การประเมินและตัวชี้วัด (${title})
       </div>
-      <div style="display:flex; flex-wrap:wrap; gap:20px;">
+      <div style="display:flex; flex-wrap:wrap; gap:20px; font-size:0.85rem;">
           <div style="flex:1.5; min-width:300px;">
               <div style="font-weight:bold; color:#334155; margin-bottom:5px;">📌 ตัวชี้วัดที่ประเมิน:</div>
               <div style="color:#475569; line-height:1.6; margin-left:10px;">
@@ -2912,51 +2927,37 @@ function renderRTWTable() {
                   <div><b style="color:#c2410c;">การคิด (40):</b> วัดข้อ 3-4 (ครั้งละ 20)</div>
                   <div><b style="color:#15803d;">การเขียน (30):</b> วัดข้อ 5 (ครั้งละ 15)</div>
               </div>
-              <div style="font-weight:bold; color:#334155; margin-bottom:5px;">🏆 ระดับคุณภาพ:</div>
-              <div style="display:flex; flex-wrap:wrap; gap:6px; margin-left:10px;">
-                  <span class="res-badge res-3" style="padding:3px 8px;">ดีเยี่ยม (86-100)</span>
-                  <span class="res-badge res-2" style="padding:3px 8px;">ดี (70-85)</span>
-                  <span class="res-badge res-1" style="padding:3px 8px;">ผ่าน (50-69)</span>
-                  <span class="res-badge res-0" style="padding:3px 8px;">ไม่ผ่าน (0-49)</span>
-              </div>
           </div>
       </div>
     </div>
   `;
   
-  // นำกล่องเกณฑ์ไปแทรกไว้ก่อนตาราง
   $('rtwIndicatorLabel').innerHTML = criteriaHtml;
-  $('rtwIndicatorLabel').className = ""; // ลบคลาสเดิมทิ้งเพื่อให้ดีไซน์ใหม่แสดงผลเต็มที่
+  $('rtwIndicatorLabel').className = "";
   $('rtwIndicatorLabel').style.border = "none";
   $('rtwIndicatorLabel').style.background = "transparent";
 
-  // --- ส่วนที่ 2: สร้างตารางกรอกข้อมูล ---
+  // สร้างตารางกรอกข้อมูล
   const htmlRows = App.students.map((s, idx) => {
     const r = s.rtw_data || {};
     return `
       <tr data-rtwsid="${s.studentId}">
         <td class="ass-no">${idx + 1}</td>
         <td class="ass-name" style="text-align:left; background:#fff; position:sticky; left:0; z-index:10;">${s.name}</td>
-        <!-- การอ่าน ครั้ง 1 (ข้อ 1, 2) -->
         <td><input type="number" class="inp-ass rtw-r1-1" min="0" max="8" value="${r.r1_1||''}" oninput="calcRTWRow(this)"></td>
         <td><input type="number" class="inp-ass rtw-r1-2" min="0" max="7" value="${r.r1_2||''}" oninput="calcRTWRow(this)"></td>
         <td class="bg-sum rtw-r1-sum">-</td>
-        <!-- การอ่าน ครั้ง 2 (ข้อ 1, 2) -->
         <td><input type="number" class="inp-ass rtw-r2-1" min="0" max="8" value="${r.r2_1||''}" oninput="calcRTWRow(this)"></td>
         <td><input type="number" class="inp-ass rtw-r2-2" min="0" max="7" value="${r.r2_2||''}" oninput="calcRTWRow(this)"></td>
         <td class="bg-sum rtw-r2-sum">-</td>
-        <!-- การคิด ครั้ง 1 (ข้อ 3, 4) -->
         <td><input type="number" class="inp-ass rtw-c1-3" min="0" max="10" value="${r.c1_3||''}" oninput="calcRTWRow(this)"></td>
         <td><input type="number" class="inp-ass rtw-c1-4" min="0" max="10" value="${r.c1_4||''}" oninput="calcRTWRow(this)"></td>
         <td class="bg-sum rtw-c1-sum">-</td>
-        <!-- การคิด ครั้ง 2 (ข้อ 3, 4) -->
         <td><input type="number" class="inp-ass rtw-c2-3" min="0" max="10" value="${r.c2_3||''}" oninput="calcRTWRow(this)"></td>
         <td><input type="number" class="inp-ass rtw-c2-4" min="0" max="10" value="${r.c2_4||''}" oninput="calcRTWRow(this)"></td>
         <td class="bg-sum rtw-c2-sum">-</td>
-        <!-- การเขียน (ข้อ 5) -->
         <td><input type="number" class="inp-ass rtw-w1-5" min="0" max="15" value="${r.w1_5||''}" oninput="calcRTWRow(this)"></td>
         <td><input type="number" class="inp-ass rtw-w2-5" min="0" max="15" value="${r.w2_5||''}" oninput="calcRTWRow(this)"></td>
-        <!-- สรุปผล -->
         <td class="bg-sum rtw-grand-total" style="font-weight:bold; background:#e0f2fe!important; color:#0369a1;">-</td>
         <td><span class="res-badge rtw-grade">-</span></td>
       </tr>`;
@@ -2990,10 +2991,9 @@ function renderRTWTable() {
       </table>
     </div>`;
     
-  // ประมวลผลคะแนนเริ่มต้นให้แสดงครบทุกแถว
   $$('#rtwBody tr[data-rtwsid]').forEach(tr => calcRTWRow(tr.querySelector('.rtw-r1-1')));
 }
-// 2. ฟังก์ชันคำนวณคะแนนและตัดเกรด
+  // 2. ฟังก์ชันคำนวณคะแนนและตัดเกรด
 // ฟังก์ชันคำนวณคะแนน RTW และเลื่อนเคอร์เซอร์อัตโนมัติ (แบบเลื่อนลง)
 function calcRTWRow(input) {
   if (!input) return;
@@ -3079,13 +3079,21 @@ async function saveRTWData() {
 // ฟังก์ชันพิมพ์รายงาน RTW แบบละเอียด (แยกครั้ง + รวมรายด้าน)
 // ฟังก์ชันพิมพ์รายงาน RTW ครบชุด 3 หน้า (ปก + ตารางแยกครั้ง + เกณฑ์)
 // ฟังก์ชันพิมพ์รายงาน RTW ครบชุด (ปกสวยงาม + ตาราง + เกณฑ์)
+// ฟังก์ชันพิมพ์รายงาน RTW ครบชุด (ดึงครูประจำชั้นจากแท็บ RTW)
 function printRTWReport() {
   const cls = $('gClass').value;
   const subj = $('gSubj').value;
-  // ดึงชื่อครูจากหน้าตั้งค่า (ถ้าระบุไว้ จะนำมาแสดงเป็นครูประจำชั้น)
-  const teacherName = $('ci_teacher_name').value || '........................................................';
   const directorName = "นางสาวสู่ขวัญ ตลับนาค";
   const academicHead = $('sp_academic_head_name').value || '........................................................';
+
+  // --- ดึงชื่อครูประจำชั้นจากช่องในแท็บนี้โดยตรง ---
+  let rawTeacherName = $('rtw_homeroom_teacher').value.trim();
+  if (!rawTeacherName) rawTeacherName = '........................................................';
+  
+  // แยกชื่อครูด้วยคำว่า "และ", "/", หรือ "," เพื่อสร้างช่องเซ็นชื่อ
+  let teachers = rawTeacherName.split(/\s*(?:และ|\/|,)\s*/).filter(t => t);
+  if (teachers.length === 0) teachers = ['........................................................'];
+  const displayTeacherName = teachers.join(' และ '); // แสดงบรรทัดด้านบน
 
   // 1. ดึงข้อมูลและคำนวณคะแนน
   const rows = [...$$('#rtwBody tr[data-rtwsid]')].map((tr, i) => {
@@ -3156,7 +3164,6 @@ function printRTWReport() {
         .text-left { text-align: left; }
         .fw-bold { font-weight: bold; }
         
-        /* สไตล์พิเศษสำหรับหน้าปก */
         .cover-logo { width: 95px; height: auto; margin-bottom: 15px; }
         .cover-title { font-size: 22px; font-weight: bold; margin-bottom: 5px; letter-spacing: 0.5px; }
         .cover-school { font-size: 20px; font-weight: bold; margin-bottom: 20px; }
@@ -3165,19 +3172,17 @@ function printRTWReport() {
         .info-row { font-size: 16px; margin-bottom: 12px; }
         .fill-line { display: inline-block; border-bottom: 1.5px dotted #000; padding: 0 15px; color: #1e3a8a; font-weight: bold; }
         
-        .summary-table { width: 95%; margin: 30px auto; border-collapse: collapse; box-shadow: 0 0 0 1px #000; }
-        .summary-table th, .summary-table td { border: 1px solid #000; padding: 8px; text-align: center; font-size: 15px; }
+        .summary-table { width: 95%; margin: 25px auto; border-collapse: collapse; box-shadow: 0 0 0 1px #000; }
+        .summary-table th, .summary-table td { border: 1px solid #000; padding: 6px; text-align: center; font-size: 15px; }
         .summary-table th { background: #f8fafc; font-weight: bold; }
         
-        /* สไตล์ลายเซ็นหน้าปก */
-        .sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 40px; text-align: center; font-size: 15px; }
-        .sign-box { margin-bottom: 25px; }
+        .sign-flex { display: flex; justify-content: center; gap: 40px; margin-top: 20px; text-align: center; font-size: 15px; flex-wrap: wrap; }
+        .sign-box { min-width: 250px; margin-bottom: 10px; }
         .sign-name { margin-top: 15px; }
         
-        .approval-card { border: 2px solid #000; border-radius: 8px; width: 80%; margin: 40px auto 0; padding: 20px; text-align: center; }
+        .approval-card { border: 2px solid #000; border-radius: 8px; width: 85%; margin: 30px auto 0; padding: 15px; text-align: center; }
         .check-box { display: inline-block; width: 14px; height: 14px; border: 1px solid #000; vertical-align: middle; margin-right: 8px; margin-top: -2px; }
 
-        /* ตารางคะแนนและเกณฑ์ (หน้า 2-3) */
         .score-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         .score-table th, .score-table td { border: 1px solid #000; padding: 6px 4px; text-align: center; font-size: 12px; }
         .score-table th { background: #f2f2f2; font-size: 11px; }
@@ -3186,7 +3191,7 @@ function printRTWReport() {
     </head>
     <body>
 
-      <!-- ================= หน้า 1: ปกแบบสวยงามทางการ ================= -->
+      <!-- ================= หน้า 1: ปก ================= -->
       <div class="page">
         <div class="text-center">
           <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg/1200px-The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg.png" class="cover-logo"><br>
@@ -3194,12 +3199,8 @@ function printRTWReport() {
           <div class="cover-school">โรงเรียนบ้านคลอง 14</div>
           <div class="cover-divider"></div>
           
-          <div class="info-row">
-            ชั้น <span class="fill-line" style="min-width: 250px;">${cls}</span>
-          </div>
-          <div class="info-row">
-            ครูประจำชั้น/ครูที่ปรึกษา <span class="fill-line" style="min-width: 350px;">${teacherName}</span>
-          </div>
+          <div class="info-row">ชั้น <span class="fill-line" style="min-width: 250px;">${cls}</span></div>
+          <div class="info-row">ครูประจำชั้น/ครูที่ปรึกษา <span class="fill-line" style="min-width: 350px;">${displayTeacherName}</span></div>
 
           <table class="summary-table">
             <thead>
@@ -3209,10 +3210,7 @@ function printRTWReport() {
                 <th colspan="4">จำนวนนักเรียนที่ได้รับระดับผลการประเมิน</th>
               </tr>
               <tr>
-                <th style="width:14%;">ดีเยี่ยม</th>
-                <th style="width:14%;">ดี</th>
-                <th style="width:14%;">ผ่าน</th>
-                <th style="width:15%;">ควรปรับปรุง</th>
+                <th style="width:14%;">ดีเยี่ยม</th><th style="width:14%;">ดี</th><th style="width:14%;">ผ่าน</th><th style="width:15%;">ควรปรับปรุง</th>
               </tr>
             </thead>
             <tbody>
@@ -3232,34 +3230,39 @@ function printRTWReport() {
             </tbody>
           </table>
 
-          <!-- ส่วนลงนามจัดแบบ Grid ซ้ายขวาให้สมดุล -->
-          <div class="text-left fw-bold" style="margin-top: 35px; padding-left: 20px; font-size: 16px;">การตัดสินผลและเห็นชอบ</div>
+          <div class="text-left fw-bold" style="margin-top: 25px; padding-left: 20px; font-size: 16px;">การตัดสินผลและเห็นชอบ</div>
           
-          <div class="sign-grid">
-            <div class="sign-box">
-              (ลงชื่อ)........................................................<br>
-              <div class="sign-name">( ${teacherName} )</div>
-              <div>ครูประจำชั้น / ครูผู้สอน</div>
-            </div>
+          <!-- ลายเซ็นครูประจำชั้น (แยกกล่องให้อัตโนมัติถ้ามีหลายคน) -->
+          <div class="sign-flex">
+            ${teachers.map(t => `
+              <div class="sign-box">
+                (ลงชื่อ)........................................................<br>
+                <div class="sign-name">( ${t} )</div>
+                <div>ครูประจำชั้น</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- ลายเซ็นวิชาการ -->
+          <div class="sign-flex" style="margin-top: 5px;">
             <div class="sign-box">
               (ลงชื่อ)........................................................<br>
               <div class="sign-name">( ${academicHead} )</div>
               <div>ประธานกรรมการประเมินฯ</div>
             </div>
-            <div class="sign-box" style="grid-column: 1 / -1; margin-top: -10px;">
+            <div class="sign-box">
               (ลงชื่อ)........................................................<br>
               <div class="sign-name">(........................................................)</div>
-              <div>เลขานุการคณะกรรมการบริหารหลักสูตรฯ</div>
+              <div>เลขานุการคณะกรรมการฯ</div>
             </div>
           </div>
 
           <div class="approval-card">
-            <div class="fw-bold" style="font-size: 16px; margin-bottom: 20px;">การอนุมัติผลการประเมิน</div>
-            <div style="display: flex; justify-content: center; gap: 60px; margin-bottom: 30px; font-size: 16px;">
+            <div class="fw-bold" style="font-size: 16px; margin-bottom: 15px;">การอนุมัติผลการประเมิน</div>
+            <div style="display: flex; justify-content: center; gap: 60px; margin-bottom: 25px; font-size: 16px;">
               <span><span class="check-box"></span> อนุมัติ</span>
               <span><span class="check-box"></span> ไม่อนุมัติ</span>
             </div>
-            
             (ลงชื่อ)....................................................................ผู้อำนวยการโรงเรียน<br>
             <div style="margin-top:10px;">( ${directorName} )</div>
             <div style="margin-top:5px;">วันที่ 31 เดือน มีนาคม พ.ศ. 2568</div>
@@ -3271,18 +3274,16 @@ function printRTWReport() {
       <div class="page">
         <div class="text-center">
           <div class="fw-bold" style="font-size:18px;">สรุปคะแนนการประเมินการอ่าน คิดวิเคราะห์ และเขียน (แยกตามครั้ง)</div>
-          <p style="font-size:15px; margin-top:5px;">วิชา ${subj} | ชั้น ${cls} | ครูผู้สอน: ${teacherName}</p>
+          <p style="font-size:15px; margin-top:5px;">วิชา ${subj} | ชั้น ${cls}</p>
         </div>
         <table class="score-table">
           <thead>
             <tr>
-              <th rowspan="2" style="width:25px;">ที่</th>
-              <th rowspan="2" class="col-name">ชื่อ-นามสกุล</th>
+              <th rowspan="2" style="width:25px;">ที่</th><th rowspan="2" class="col-name">ชื่อ-นามสกุล</th>
               <th colspan="3" style="background:#eff6ff;">การอ่าน (30)</th>
               <th colspan="3" style="background:#fff7ed;">การคิดวิเคราะห์ (40)</th>
               <th colspan="3" style="background:#f0fdf4;">การเขียน (30)</th>
-              <th rowspan="2" style="width:40px;">รวม<br>(100)</th>
-              <th rowspan="2" style="width:60px;">ระดับผล</th>
+              <th rowspan="2" style="width:40px;">รวม<br>(100)</th><th rowspan="2" style="width:60px;">ระดับผล</th>
             </tr>
             <tr>
               <th style="background:#eff6ff; width:28px;">ค.1</th><th style="background:#eff6ff; width:28px;">ค.2</th><th style="background:#eff6ff; width:28px;">รวม</th>
@@ -3293,13 +3294,11 @@ function printRTWReport() {
           <tbody>
             ${rows.map(r => `
               <tr>
-                <td>${r.no}</td>
-                <td class="col-name">${r.name}</td>
+                <td>${r.no}</td><td class="col-name">${r.name}</td>
                 <td style="background:#eff6ff;">${r.r1}</td><td style="background:#eff6ff;">${r.r2}</td><td class="fw-bold" style="background:#eff6ff;">${r.r_total}</td>
                 <td style="background:#fff7ed;">${r.c1}</td><td style="background:#fff7ed;">${r.c2}</td><td class="fw-bold" style="background:#fff7ed;">${r.c_total}</td>
                 <td style="background:#f0fdf4;">${r.w1}</td><td style="background:#f0fdf4;">${r.w2}</td><td class="fw-bold" style="background:#f0fdf4;">${r.w_total}</td>
-                <td class="fw-bold" style="font-size:13px;">${r.grand_total}</td>
-                <td class="fw-bold">${r.grade}</td>
+                <td class="fw-bold" style="font-size:13px;">${r.grand_total}</td><td class="fw-bold">${r.grade}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -3339,20 +3338,15 @@ function printRTWReport() {
           </table>
           
           <div style="margin-top: 30px; font-size: 13px; font-style: italic; color: #555; text-align:center;">
-            * การประเมินอ้างอิงตามหลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช 2551 และแนวทางการประเมินของสถานศึกษา
+            * การประเมินอ้างอิงตามหลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช 2551
           </div>
         </div>
       </div>
-
     </body>
     </html>
   `;
-
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
+  win.document.open(); win.document.write(html); win.document.close();
 }
-
 </script>
 </body>
 </html>
