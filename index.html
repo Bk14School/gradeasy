@@ -3078,18 +3078,18 @@ async function saveRTWData() {
 // 4. ฟังก์ชันพิมพ์รายงาน (PDF)
 // ฟังก์ชันพิมพ์รายงาน RTW แบบละเอียด (แยกครั้ง + รวมรายด้าน)
 // ฟังก์ชันพิมพ์รายงาน RTW ครบชุด 3 หน้า (ปก + ตารางแยกครั้ง + เกณฑ์)
+// ฟังก์ชันพิมพ์รายงาน RTW ครบชุด (ปกสวยงาม + ตาราง + เกณฑ์)
 function printRTWReport() {
   const cls = $('gClass').value;
   const subj = $('gSubj').value;
-  const teacherName = $('ci_teacher_name').value || '................................................';
+  // ดึงชื่อครูจากหน้าตั้งค่า (ถ้าระบุไว้ จะนำมาแสดงเป็นครูประจำชั้น)
+  const teacherName = $('ci_teacher_name').value || '........................................................';
   const directorName = "นางสาวสู่ขวัญ ตลับนาค";
-  const academicHead = $('sp_academic_head_name').value || '................................................';
+  const academicHead = $('sp_academic_head_name').value || '........................................................';
 
-  // 1. ดึงข้อมูลและคำนวณคะแนนจากหน้าจอ (รองรับข้อย่อย)
+  // 1. ดึงข้อมูลและคำนวณคะแนน
   const rows = [...$$('#rtwBody tr[data-rtwsid]')].map((tr, i) => {
     const getV = (s) => parseFloat(tr.querySelector(s).value) || 0;
-    
-    // คำนวณรายครั้ง
     const r1 = getV('.rtw-r1-1') + getV('.rtw-r1-2');
     const r2 = getV('.rtw-r2-1') + getV('.rtw-r2-2');
     const c1 = getV('.rtw-c1-3') + getV('.rtw-c1-4');
@@ -3097,17 +3097,12 @@ function printRTWReport() {
     const w1 = getV('.rtw-w1-5');
     const w2 = getV('.rtw-w2-5');
 
-    // รวมรายด้าน
-    const r_total = r1 + r2; // เต็ม 30
-    const c_total = c1 + c2; // เต็ม 40
-    const w_total = w1 + w2; // เต็ม 30
-
     return {
       no: i + 1, 
       name: tr.querySelector('.ass-name').textContent,
-      r1, r2, r_total,
-      c1, c2, c_total,
-      w1, w2, w_total,
+      r1, r2, r_total: r1 + r2,
+      c1, c2, c_total: c1 + c2,
+      w1, w2, w_total: w1 + w2,
       grand_total: tr.querySelector('.rtw-grand-total').textContent,
       grade: tr.querySelector('.rtw-grade').textContent
     };
@@ -3115,7 +3110,7 @@ function printRTWReport() {
 
   if (!rows.length) return Utils.toast('ไม่พบข้อมูลนักเรียน', 'error');
 
-  // 2. คำนวณสถิติเพื่อลงในตารางหน้าปก (แยกตามรายด้าน อ่าน/คิด/เขียน)
+  // 2. คำนวณสถิติ
   const getLvl = (score, max) => {
     const p = (score / max) * 100;
     if (p >= 86) return 'ex'; if (p >= 70) return 'g'; if (p >= 50) return 'p'; return 'i';
@@ -3133,7 +3128,7 @@ function printRTWReport() {
     stats.w[getLvl(row.w_total, 30)]++;
   });
 
-  // 3. กำหนดตัวชี้วัดตามระดับชั้น สำหรับหน้าปกและหน้าเกณฑ์
+  // 3. กำหนดตัวชี้วัดตามระดับชั้น
   let indicators = [];
   if (cls.match(/[ป].[1-3]/)) {
     indicators = ["1. อ่านและหาประสบการณ์จากสื่อที่หลากหลาย", "2. จับประเด็นสำคัญ ข้อเท็จจริง ความคิดเห็น", "3. เปรียบเทียบแง่มุมต่างๆ เช่น ข้อดี-เสีย ประโยชน์-โทษ", "4. แสดงความคิดเห็นต่อเรื่องที่อ่านอย่างมีเหตุผล", "5. ถ่ายทอดความรู้สึกจากเรื่องที่อ่านโดยการเขียน"];
@@ -3143,7 +3138,7 @@ function printRTWReport() {
     indicators = ["1. คัดสรรสื่อเพื่อหาข้อมูลสารสนเทศตามวัตถุประสงค์", "2. จับประเด็นสำคัญ ประเด็นสนับสนุน และโต้แย้ง", "3. วิเคราะห์ วิจารณ์ความสมเหตุสมผลน่าเชื่อถือ", "4. สรุปคุณค่า แนวคิด แง่คิดที่ได้จากการอ่าน", "5. สรุป อภิปราย ขยายความ แสดงความเห็นโต้แย้งโดยการเขียน"];
   }
 
-  // 4. สร้างเอกสาร HTML 3 หน้า
+  // 4. สร้างเอกสาร HTML
   const win = window.open('', '_blank');
   const html = `
     <!DOCTYPE html>
@@ -3151,120 +3146,123 @@ function printRTWReport() {
     <head>
       <meta charset="utf-8">
       <title>รายงานประเมินการอ่านคิดวิเคราะห์และเขียน</title>
-      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
       <style>
-        @page { size: A4 portrait; margin: 15mm 15mm; }
-        body { font-family: 'Sarabun', sans-serif; font-size: 15px; line-height: 1.5; color: #000; margin: 0; padding: 0; }
-        .page { page-break-after: always; min-height: 270mm; position: relative; }
+        @page { size: A4 portrait; margin: 15mm; }
+        body { font-family: 'Sarabun', sans-serif; font-size: 15px; line-height: 1.5; color: #000; margin: 0; }
+        .page { page-break-after: always; min-height: 260mm; position: relative; padding: 10px 20px; }
+        
         .text-center { text-align: center; }
         .text-left { text-align: left; }
         .fw-bold { font-weight: bold; }
         
-        .logo { width: 85px; height: auto; margin-bottom: 10px; }
-        .header-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-        .line-dots { border-bottom: 1px dotted #000; display: inline-block; min-width: 300px; text-align: center; }
-
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }
-        th, td { border: 1px solid #000; padding: 6px 4px; text-align: center; font-size: 14px; }
-        th { background: #fff; font-weight: bold; }
-
-        .sign-section { margin-top: 25px; font-size: 14px; }
-        .sign-row { margin-bottom: 12px; display: flex; align-items: flex-start; justify-content: flex-start; padding-left: 60px; }
-        .sign-label { min-width: 400px; }
+        /* สไตล์พิเศษสำหรับหน้าปก */
+        .cover-logo { width: 95px; height: auto; margin-bottom: 15px; }
+        .cover-title { font-size: 22px; font-weight: bold; margin-bottom: 5px; letter-spacing: 0.5px; }
+        .cover-school { font-size: 20px; font-weight: bold; margin-bottom: 20px; }
+        .cover-divider { border-top: 1px dashed #666; width: 60%; margin: 0 auto 25px; }
         
-        .approval-box { border: 0px solid #000; margin: 30px auto 0; width: 80%; padding: 10px; text-align: center; }
-        .check-box { display: inline-block; width: 14px; height: 14px; border: 1px solid #000; vertical-align: middle; margin-right: 5px; }
+        .info-row { font-size: 16px; margin-bottom: 12px; }
+        .fill-line { display: inline-block; border-bottom: 1.5px dotted #000; padding: 0 15px; color: #1e3a8a; font-weight: bold; }
+        
+        .summary-table { width: 95%; margin: 30px auto; border-collapse: collapse; box-shadow: 0 0 0 1px #000; }
+        .summary-table th, .summary-table td { border: 1px solid #000; padding: 8px; text-align: center; font-size: 15px; }
+        .summary-table th { background: #f8fafc; font-weight: bold; }
+        
+        /* สไตล์ลายเซ็นหน้าปก */
+        .sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 40px; text-align: center; font-size: 15px; }
+        .sign-box { margin-bottom: 25px; }
+        .sign-name { margin-top: 15px; }
+        
+        .approval-card { border: 2px solid #000; border-radius: 8px; width: 80%; margin: 40px auto 0; padding: 20px; text-align: center; }
+        .check-box { display: inline-block; width: 14px; height: 14px; border: 1px solid #000; vertical-align: middle; margin-right: 8px; margin-top: -2px; }
 
-        /* ตารางคะแนนหน้า 2 */
-        .score-table th { font-size: 11px; background: #f2f2f2; }
-        .score-table td { font-size: 12px; }
+        /* ตารางคะแนนและเกณฑ์ (หน้า 2-3) */
+        .score-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .score-table th, .score-table td { border: 1px solid #000; padding: 6px 4px; text-align: center; font-size: 12px; }
+        .score-table th { background: #f2f2f2; font-size: 11px; }
         .score-table .col-name { text-align: left; padding-left: 5px; width: 160px; }
       </style>
     </head>
     <body>
 
-      <!-- ================= หน้า 1: ปก ================= -->
+      <!-- ================= หน้า 1: ปกแบบสวยงามทางการ ================= -->
       <div class="page">
         <div class="text-center">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg/1200px-The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg.png" class="logo"><br>
-          <div class="header-title">แบบบันทึกผลการประเมินการอ่าน คิดวิเคราะห์และเขียน</div>
-          <div class="header-title">โรงเรียนบ้านคลอง 14</div>
-          <div style="margin: 10px 0;">...............................................................................................................................</div>
+          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg/1200px-The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg.png" class="cover-logo"><br>
+          <div class="cover-title">แบบบันทึกผลการประเมินการอ่าน คิดวิเคราะห์และเขียน</div>
+          <div class="cover-school">โรงเรียนบ้านคลอง 14</div>
+          <div class="cover-divider"></div>
           
-          <div style="margin-top: 10px;">
-            ชั้น <span class="line-dots" style="min-width:250px; color:red;">${cls}</span>
+          <div class="info-row">
+            ชั้น <span class="fill-line" style="min-width: 250px;">${cls}</span>
           </div>
-          <div style="margin-top: 10px;">
-            ครูประจำชั้น/ ครูที่ปรึกษา <span class="line-dots" style="min-width:350px;">${teacherName}</span>
+          <div class="info-row">
+            ครูประจำชั้น/ครูที่ปรึกษา <span class="fill-line" style="min-width: 350px;">${teacherName}</span>
           </div>
 
-          <table>
+          <table class="summary-table">
             <thead>
               <tr>
-                <th rowspan="2" style="width:12%;">จำนวนนักเรียนทั้งหมด</th>
-                <th rowspan="2" style="width:25%;">มาตรฐานการอ่าน คิด วิเคราะห์ และเขียน</th>
-                <th colspan="4" style="width:45%;">สรุปผลการประเมิน</th>
-                <th rowspan="2" style="width:18%;">หมายเหตุ</th>
+                <th rowspan="2" style="width:15%;">จำนวนนักเรียน<br>ทั้งหมด</th>
+                <th rowspan="2" style="width:28%;">มาตรฐานการประเมิน<br>(อ่าน คิด เขียน)</th>
+                <th colspan="4">จำนวนนักเรียนที่ได้รับระดับผลการประเมิน</th>
               </tr>
               <tr>
-                <th style="width:11%;">ดีเยี่ยม</th>
-                <th style="width:11%;">ดี</th>
-                <th style="width:11%;">ผ่าน</th>
-                <th style="width:12%;">ควรปรับปรุง</th>
+                <th style="width:14%;">ดีเยี่ยม</th>
+                <th style="width:14%;">ดี</th>
+                <th style="width:14%;">ผ่าน</th>
+                <th style="width:15%;">ควรปรับปรุง</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td rowspan="3" class="fw-bold"><br><br>${rows.length} คน</td>
-                <td class="text-left">1. การอ่าน</td>
+                <td rowspan="3" class="fw-bold" style="font-size: 18px;"><br><br>${rows.length} คน</td>
+                <td class="text-left fw-bold" style="padding-left:15px;">1. การอ่าน</td>
                 <td>${stats.r.ex}</td><td>${stats.r.g}</td><td>${stats.r.p}</td><td>${stats.r.i}</td>
-                <td></td>
               </tr>
               <tr>
-                <td class="text-left">2. การคิดวิเคราะห์</td>
+                <td class="text-left fw-bold" style="padding-left:15px;">2. การคิดวิเคราะห์</td>
                 <td>${stats.c.ex}</td><td>${stats.c.g}</td><td>${stats.c.p}</td><td>${stats.c.i}</td>
-                <td></td>
               </tr>
               <tr>
-                <td class="text-left">3. การเขียน</td>
+                <td class="text-left fw-bold" style="padding-left:15px;">3. การเขียน</td>
                 <td>${stats.w.ex}</td><td>${stats.w.g}</td><td>${stats.w.p}</td><td>${stats.w.i}</td>
-                <td></td>
               </tr>
             </tbody>
           </table>
 
-          <div class="text-left fw-bold" style="margin-top: 25px; padding-left: 20px;">การตัดสินผลการประเมิน</div>
+          <!-- ส่วนลงนามจัดแบบ Grid ซ้ายขวาให้สมดุล -->
+          <div class="text-left fw-bold" style="margin-top: 35px; padding-left: 20px; font-size: 16px;">การตัดสินผลและเห็นชอบ</div>
           
-          <div class="sign-section">
-            <div class="sign-row">
-              <div class="sign-label">(ลงชื่อ)......................................................................ครูประจำชั้น</div>
+          <div class="sign-grid">
+            <div class="sign-box">
+              (ลงชื่อ)........................................................<br>
+              <div class="sign-name">( ${teacherName} )</div>
+              <div>ครูประจำชั้น / ครูผู้สอน</div>
             </div>
-            <div class="sign-row">
-              <div class="sign-label">
-                (ลงชื่อ)......................................................................ประธานกรรมการการประเมินการอ่าน คิดวิเคราะห์ และเขียน
-                <div style="margin-top:10px; padding-left:45px;">( <span style="display:inline-block; min-width:200px; text-align:center;">${academicHead}</span> )</div>
-              </div>
+            <div class="sign-box">
+              (ลงชื่อ)........................................................<br>
+              <div class="sign-name">( ${academicHead} )</div>
+              <div>ประธานกรรมการประเมินฯ</div>
             </div>
+            <div class="sign-box" style="grid-column: 1 / -1; margin-top: -10px;">
+              (ลงชื่อ)........................................................<br>
+              <div class="sign-name">(........................................................)</div>
+              <div>เลขานุการคณะกรรมการบริหารหลักสูตรฯ</div>
+            </div>
+          </div>
 
-            <div class="text-left fw-bold" style="margin-top: 15px; padding-left: 20px;">เห็นชอบ</div>
-            <div class="sign-row" style="margin-top:10px;">
-              <div class="sign-label">
-                (ลงชื่อ)......................................................................เลขานุการคณะกรรมการบริหารหลักสูตรและงานวิชาการ
-                <div style="margin-top:10px; padding-left:45px;">(....................................................................)</div>
-              </div>
+          <div class="approval-card">
+            <div class="fw-bold" style="font-size: 16px; margin-bottom: 20px;">การอนุมัติผลการประเมิน</div>
+            <div style="display: flex; justify-content: center; gap: 60px; margin-bottom: 30px; font-size: 16px;">
+              <span><span class="check-box"></span> อนุมัติ</span>
+              <span><span class="check-box"></span> ไม่อนุมัติ</span>
             </div>
-
-            <div class="approval-box">
-              <div class="text-left fw-bold" style="margin-bottom:15px; padding-left: 0px;">การอนุมัติผลการประเมิน</div>
-              <div style="display: flex; justify-content: center; gap: 50px; margin-bottom: 25px;">
-                <span><span class="check-box"></span> อนุมัติ</span>
-                <span><span class="check-box"></span> ไม่อนุมัติ</span>
-              </div>
-              
-              (ลงชื่อ)......................................................................ผู้อำนวยการโรงเรียน<br>
-              ( ${directorName} )<br>
-              วันที่ 31 เดือน มีนาคม พ.ศ. 2568
-            </div>
+            
+            (ลงชื่อ)....................................................................ผู้อำนวยการโรงเรียน<br>
+            <div style="margin-top:10px;">( ${directorName} )</div>
+            <div style="margin-top:5px;">วันที่ 31 เดือน มีนาคม พ.ศ. 2568</div>
           </div>
         </div>
       </div>
@@ -3272,8 +3270,8 @@ function printRTWReport() {
       <!-- ================= หน้า 2: ตารางคะแนนแยกครั้ง ================= -->
       <div class="page">
         <div class="text-center">
-          <div class="fw-bold" style="font-size:17px;">สรุปคะแนนการประเมินการอ่าน คิดวิเคราะห์ และเขียน (แยกตามครั้ง)</div>
-          <p style="font-size:14px; margin-top:5px;">วิชา ${subj} | ชั้น ${cls}</p>
+          <div class="fw-bold" style="font-size:18px;">สรุปคะแนนการประเมินการอ่าน คิดวิเคราะห์ และเขียน (แยกตามครั้ง)</div>
+          <p style="font-size:15px; margin-top:5px;">วิชา ${subj} | ชั้น ${cls} | ครูผู้สอน: ${teacherName}</p>
         </div>
         <table class="score-table">
           <thead>
@@ -3283,8 +3281,8 @@ function printRTWReport() {
               <th colspan="3" style="background:#eff6ff;">การอ่าน (30)</th>
               <th colspan="3" style="background:#fff7ed;">การคิดวิเคราะห์ (40)</th>
               <th colspan="3" style="background:#f0fdf4;">การเขียน (30)</th>
-              <th rowspan="2" style="width:35px;">รวม<br>(100)</th>
-              <th rowspan="2" style="width:55px;">ระดับผล</th>
+              <th rowspan="2" style="width:40px;">รวม<br>(100)</th>
+              <th rowspan="2" style="width:60px;">ระดับผล</th>
             </tr>
             <tr>
               <th style="background:#eff6ff; width:28px;">ค.1</th><th style="background:#eff6ff; width:28px;">ค.2</th><th style="background:#eff6ff; width:28px;">รวม</th>
@@ -3300,7 +3298,7 @@ function printRTWReport() {
                 <td style="background:#eff6ff;">${r.r1}</td><td style="background:#eff6ff;">${r.r2}</td><td class="fw-bold" style="background:#eff6ff;">${r.r_total}</td>
                 <td style="background:#fff7ed;">${r.c1}</td><td style="background:#fff7ed;">${r.c2}</td><td class="fw-bold" style="background:#fff7ed;">${r.c_total}</td>
                 <td style="background:#f0fdf4;">${r.w1}</td><td style="background:#f0fdf4;">${r.w2}</td><td class="fw-bold" style="background:#f0fdf4;">${r.w_total}</td>
-                <td class="fw-bold">${r.grand_total}</td>
+                <td class="fw-bold" style="font-size:13px;">${r.grand_total}</td>
                 <td class="fw-bold">${r.grade}</td>
               </tr>
             `).join('')}
@@ -3328,12 +3326,16 @@ function printRTWReport() {
           </div>
 
           <div class="fw-bold" style="text-decoration: underline; margin-top: 30px;">เกณฑ์การตัดสินคุณภาพ:</div>
-          <table style="width: 80%; margin: 10px auto;">
-            <tr style="background:#eee;"><th>ช่วงคะแนนร้อยละ</th><th>ระดับคุณภาพ</th><th>ความหมาย</th></tr>
-            <tr><td>86 - 100</td><td>ดีเยี่ยม (3)</td><td class="text-left" style="padding-left:10px;">มีผลงานแสดงถึงความสามารถที่มีคุณภาพดีเลิศอยู่เสมอ</td></tr>
-            <tr><td>70 - 85</td><td>ดี (2)</td><td class="text-left" style="padding-left:10px;">มีผลงานแสดงถึงความสามารถที่มีคุณภาพเป็นที่ยอมรับ</td></tr>
-            <tr><td>50 - 69</td><td>ผ่าน (1)</td><td class="text-left" style="padding-left:10px;">มีผลงานแสดงถึงความสามารถที่มีข้อบกพร่องบางประการ</td></tr>
-            <tr><td>0 - 49</td><td>ไม่ผ่าน (0)</td><td class="text-left" style="padding-left:10px;">ไม่มีผลงาน หรือผลงานต้องได้รับการปรับปรุงหลายประการ</td></tr>
+          <table style="width: 80%; margin: 10px auto; border-collapse: collapse;">
+            <tr style="background:#f8fafc;">
+              <th style="border:1px solid #000; padding:8px;">ช่วงคะแนนร้อยละ</th>
+              <th style="border:1px solid #000; padding:8px;">ระดับคุณภาพ</th>
+              <th style="border:1px solid #000; padding:8px;">ความหมาย</th>
+            </tr>
+            <tr><td style="border:1px solid #000; text-align:center;">86 - 100</td><td style="border:1px solid #000; text-align:center;">ดีเยี่ยม (3)</td><td class="text-left" style="border:1px solid #000; padding-left:10px;">มีผลงานแสดงถึงความสามารถที่มีคุณภาพดีเลิศอยู่เสมอ</td></tr>
+            <tr><td style="border:1px solid #000; text-align:center;">70 - 85</td><td style="border:1px solid #000; text-align:center;">ดี (2)</td><td class="text-left" style="border:1px solid #000; padding-left:10px;">มีผลงานแสดงถึงความสามารถที่มีคุณภาพเป็นที่ยอมรับ</td></tr>
+            <tr><td style="border:1px solid #000; text-align:center;">50 - 69</td><td style="border:1px solid #000; text-align:center;">ผ่าน (1)</td><td class="text-left" style="border:1px solid #000; padding-left:10px;">มีผลงานแสดงถึงความสามารถที่มีข้อบกพร่องบางประการ</td></tr>
+            <tr><td style="border:1px solid #000; text-align:center;">0 - 49</td><td style="border:1px solid #000; text-align:center;">ไม่ผ่าน (0)</td><td class="text-left" style="border:1px solid #000; padding-left:10px;">ไม่มีผลงาน หรือผลงานต้องได้รับการปรับปรุงหลายประการ</td></tr>
           </table>
           
           <div style="margin-top: 30px; font-size: 13px; font-style: italic; color: #555; text-align:center;">
@@ -3350,6 +3352,7 @@ function printRTWReport() {
   win.document.write(html);
   win.document.close();
 }
+
 </script>
 </body>
 </html>
