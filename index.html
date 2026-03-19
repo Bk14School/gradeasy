@@ -2871,6 +2871,7 @@ document.addEventListener('keydown', e => {
 
 // 1. ฟังก์ชันแสดงตาราง RTW
 // 1. ฟังก์ชันแสดงตาราง RTW และเกณฑ์การประเมินบนหน้าจอ
+// 1. ฟังก์ชันแสดงตาราง RTW และเกณฑ์การประเมินบนหน้าจอ
 function renderRTWTable() {
   const container = $('rtwContainer');
   if (!App.students.length) return;
@@ -2992,7 +2993,6 @@ function renderRTWTable() {
   // ประมวลผลคะแนนเริ่มต้นให้แสดงครบทุกแถว
   $$('#rtwBody tr[data-rtwsid]').forEach(tr => calcRTWRow(tr.querySelector('.rtw-r1-1')));
 }
-
 // 2. ฟังก์ชันคำนวณคะแนนและตัดเกรด
 // ฟังก์ชันคำนวณคะแนน RTW และเลื่อนเคอร์เซอร์อัตโนมัติ (แบบเลื่อนลง)
 function calcRTWRow(input) {
