@@ -1767,6 +1767,40 @@ body{
     </button>
   </div>
 </div>
+    <!-- ===== TAB: กิจกรรมแนะแนว ===== -->
+<div class="settings-panel" id="panel_guidance">
+  <div class="card mb-3" style="background:#fdf4ff; border:1px solid #f5d0fe;">
+    <div style="font-weight:800; font-size:.9rem; color:#86198f; margin-bottom:15px;">
+      🧭 บันทึกผลการเข้าร่วมกิจกรรมแนะแนว
+    </div>
+    
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; background:#fff; padding:10px 15px; border-radius:6px; border:1px solid #e2e8f0; flex-wrap:wrap;">
+      <label style="font-weight:bold; color:#701a75; margin:0; font-size:0.9rem;">👨‍🏫 ครูประจำชั้น:</label>
+      <input type="text" id="guidance_teacher" style="flex:1; max-width:350px; padding:6px 10px; border:1px solid #94a3b8; border-radius:4px; font-weight:bold; font-size:0.9rem;" placeholder="นาย ก / นาง ข">
+      
+      <label style="font-weight:bold; color:#701a75; margin:0 0 0 10px; font-size:0.9rem;">คาบเรียนทั้งหมด:</label>
+      <input type="number" id="guidance_max_time" value="20" style="width:60px; padding:6px; border:1px solid #94a3b8; border-radius:4px; text-align:center; font-weight:bold;" onchange="renderGuidanceTable()">
+      <span style="font-size:0.8rem; color:#64748b;">ครั้ง (ค่าเริ่มต้น 20)</span>
+    </div>
+
+    <div id="guidanceContainer">
+      <div class="text-center text-muted py-3">กรุณาโหลดรายชื่อผู้เรียน</div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+      <div style="font-size:0.8rem; color:#64748b;">
+        * เกณฑ์การประเมิน: เวลาเรียนไม่น้อยกว่า 80% ให้ระดับผลการเรียน "ผ่าน (ผ)"
+      </div>
+      <button class="btn-pri" type="button" onclick="printGuidanceReport()" style="background:linear-gradient(135deg,#a21caf,#86198f);">
+        🖨️ พิมพ์เอกสารแนะแนว (4 หน้า)
+      </button>
+    </div>
+    
+    <button class="btn-save mt-3 w-100" onclick="saveGuidanceData()" style="background:linear-gradient(135deg,#c026d3,#a21caf);">
+      💾 บันทึกผลกิจกรรมแนะแนว
+    </button>
+  </div>
+</div>
   </div>
 </div>
     </div>
@@ -3342,6 +3376,713 @@ function printRTWReport() {
           </div>
         </div>
       </div>
+    </body>
+    </html>
+  `;
+  win.document.open(); win.document.write(html); win.document.close();
+}
+
+  // =====================================================
+// NEW MODULE: กิจกรรมแนะแนว (Guidance)
+// =====================================================
+
+// ตัวแปรเก็บวันที่แนะแนวที่คำนวณได้
+App.guidanceDates = [];
+
+// ฟังก์ชันแปลงวันที่สำหรับแสดงผลย่อ (เช่น 15 มิ.ย.)
+function getShortThaiDate(dStr) {
+  const parts = dStr.split('/');
+  if (parts.length !== 3) return dStr;
+  const mNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return `${parseInt(parts[0])} ${mNames[parseInt(parts[1])-1]}`;
+}
+
+// 1. ฟังก์ชันคำนวณวันที่เรียนอัตโนมัติ (ตัดวันหยุด)
+function calcGuidanceSchedule() {
+  const term = $('guide_term').value;
+  const dayOfWeek = parseInt($('guide_day').value); // 1=จันทร์, 2=อังคาร... 5=ศุกร์
+  
+  const startD = App.termDates[`t${term}_start`];
+  const endD = App.termDates[`t${term}_end`];
+  
+  App.guidanceDates = [];
+  
+  if (startD && endD) {
+    const parseD = (str) => {
+      const p = str.split(/[\/\-]/); 
+      // แปลง พ.ศ. เป็น ค.ศ. สำหรับ JS Date
+      return new Date(parseInt(p[2]) > 2500 ? parseInt(p[2]) - 543 : parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0])); 
+    };
+    
+    const start = parseD(startD);
+    const end = parseD(endD);
+    start.setHours(0,0,0,0); end.setHours(0,0,0,0);
+    
+    const hSet = new Set((App.holidays||[]).filter(h => h.type === 'holiday').map(h => h.date));
+    let cur = new Date(start);
+    
+    while (cur <= end) {
+      if (cur.getDay() === dayOfWeek) { // ตรงกับวันที่สอน
+        const dStr = `${String(cur.getDate()).padStart(2,'0')}/${String(cur.getMonth()+1).padStart(2,'0')}/${cur.getFullYear()+543}`;
+        if (!hSet.has(dStr)) { // ไม่ใช่วันหยุด
+          App.guidanceDates.push(dStr);
+        }
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  } else {
+    // ถ้าไม่มีการตั้งค่าเปิดปิดเทอม ให้สร้างวันหลอกๆ ไว้ 20 วัน
+    for(let i=1; i<=20; i++) App.guidanceDates.push(`ครั้งที่ ${i}`);
+  }
+
+  // อัปเดต UI ให้แสดงจำนวนครั้งที่คำนวณได้
+  if ($('guide_total_show')) $('guide_total_show').textContent = App.guidanceDates.length;
+  renderGuidanceTable(true); // วาดตารางใหม่
+}
+
+// 2. สร้างตารางกรอกข้อมูลแนะแนว
+function renderGuidanceTable(isRecalculating = false) {
+  const container = $('guidanceContainer');
+  if (!App.students.length) return;
+
+  if (!isRecalculating) {
+    // ถ้าเพิ่งเปิดแท็บ สร้างแผงควบคุมด้านบนก่อน
+    const cls = $('gClass').value;
+    const defaultTerm = cls.includes("เทอม 2") ? "2" : "1";
+    let hrTeacherStr = ($('rtw_homeroom_teacher') ? $('rtw_homeroom_teacher').value : "") || App.user?.name || '';
+
+    const panelHtml = `
+      <div style="display:flex; align-items:center; gap:15px; margin-bottom:15px; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e2e8f0; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-weight:bold; color:#701a75; margin:0;">👨‍🏫 ครูประจำชั้น:</label>
+          <input type="text" id="guidance_teacher" value="${hrTeacherStr}" style="width:250px; padding:6px; border:1px solid #94a3b8; border-radius:4px; font-weight:bold;">
+        </div>
+        
+        <div style="display:flex; align-items:center; gap:8px; border-left:2px solid #fdf4ff; padding-left:15px;">
+          <label style="font-weight:bold; color:#0369a1; margin:0;">📅 ภาคเรียน:</label>
+          <select id="guide_term" style="padding:6px; border-radius:4px; font-weight:bold;" onchange="calcGuidanceSchedule()">
+            <option value="1" ${defaultTerm === "1" ? "selected" : ""}>1</option>
+            <option value="2" ${defaultTerm === "2" ? "selected" : ""}>2</option>
+          </select>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-weight:bold; color:#0369a1; margin:0;">เรียนทุกวัน:</label>
+          <select id="guide_day" style="padding:6px; border-radius:4px; font-weight:bold;" onchange="calcGuidanceSchedule()">
+            <option value="1">จันทร์</option>
+            <option value="2">อังคาร</option>
+            <option value="3">พุธ</option>
+            <option value="4">พฤหัสบดี</option>
+            <option value="5" selected>ศุกร์</option>
+          </select>
+        </div>
+
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:6px 15px; border-radius:50px; font-weight:bold;">
+          รวมเวลาเรียน: <span id="guide_total_show" style="font-size:1.1rem; color:#15803d;">0</span> คาบ
+        </div>
+      </div>
+    `;
+    $('panel_guidance').querySelector('.card').insertAdjacentHTML('afterbegin', panelHtml);
+    
+    // เรียกคำนวณครั้งแรก
+    setTimeout(calcGuidanceSchedule, 100);
+    return; // หยุดทำงานก่อน รอฟังก์ชันคำนวณวาดใหม่
+  }
+
+  const maxTime = App.guidanceDates.length;
+
+  const htmlRows = App.students.map((s, idx) => {
+    const g = s.guidance_data || {};
+    const attended = g.attended !== undefined ? g.attended : maxTime; 
+    const result = g.result || 'ผ่าน';
+
+    return `
+      <tr data-guidesid="${s.studentId}">
+        <td class="ass-no">${idx + 1}</td>
+        <td class="ass-name" style="text-align:left; background:#fff; position:sticky; left:0; z-index:10;">${s.name}</td>
+        <td>
+          <input type="number" class="inp-ass guide-time" min="0" max="${maxTime}" value="${attended}" oninput="calcGuidanceRow(this)" style="width:60px;">
+        </td>
+        <td>
+          <select class="sinput guide-result" style="width:90px; padding:4px; font-size:0.85rem; font-weight:bold; color:${result==='ผ่าน'?'#16a34a':'#dc2626'};" onchange="this.style.color = this.value==='ผ่าน'?'#16a34a':'#dc2626'">
+            <option value="ผ่าน" ${result === 'ผ่าน' ? 'selected' : ''}>ผ่าน</option>
+            <option value="ไม่ผ่าน" ${result === 'ไม่ผ่าน' ? 'selected' : ''}>ไม่ผ่าน</option>
+          </select>
+        </td>
+        <td><input type="text" class="inp-ass guide-note" value="${g.note || ''}" style="width:90%; text-align:left; padding:4px 8px;" placeholder="หมายเหตุ..."></td>
+      </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="ass-wrap">
+      <table class="ass-tbl" style="font-size:13px;">
+        <thead style="background:#fdf4ff;">
+          <tr>
+            <th style="width:40px;">ที่</th>
+            <th style="min-width:180px;">ชื่อ-นามสกุล</th>
+            <th style="width:90px;">เข้าร่วม (ครั้ง)</th>
+            <th style="width:110px;">ผลการประเมิน</th>
+            <th>หมายเหตุ</th>
+          </tr>
+        </thead>
+        <tbody id="guidanceBody">${htmlRows}</tbody>
+      </table>
+    </div>`;
+}
+
+// 3. คำนวณ ผ่าน/ไม่ผ่าน อัตโนมัติ (80%)
+function calcGuidanceRow(input) {
+  const tr = input.closest('tr');
+  const maxTime = App.guidanceDates.length;
+  let val = parseInt(input.value) || 0;
+  
+  if (val > maxTime) { val = maxTime; input.value = maxTime; Utils.toast(`เวลาเรียนสูงสุด ${maxTime} ครั้ง`, 'warning'); }
+  if (val < 0) { val = 0; input.value = 0; }
+
+  const sel = tr.querySelector('.guide-result');
+  if (val >= (maxTime * 0.8)) { sel.value = 'ผ่าน'; sel.style.color = '#16a34a'; } 
+  else { sel.value = 'ไม่ผ่าน'; sel.style.color = '#dc2626'; }
+
+  if (document.activeElement === input && input.value.length >= String(maxTime).length) {
+    const nextTr = tr.nextElementSibling;
+    if (nextTr) {
+      const nextInp = nextTr.querySelector('.guide-time');
+      if (nextInp) { nextInp.focus(); nextInp.select(); }
+    }
+  }
+}
+
+// 4. บันทึกข้อมูล
+async function saveGuidanceData() {
+  const records = [];
+  $$('#guidanceBody tr[data-guidesid]').forEach(tr => {
+    records.push({
+      studentId: tr.getAttribute('data-guidesid'),
+      attended: tr.querySelector('.guide-time').value,
+      result: tr.querySelector('.guide-result').value,
+      note: tr.querySelector('.guide-note').value
+    });
+  });
+
+  if (!records.length) return Utils.toast('ไม่พบข้อมูล', 'error');
+  Utils.showLoading('กำลังบันทึกแนะแนว...');
+  try {
+    const res = await api('saveGuidance', {
+      year: $('gYear').value,
+      classroom: $('gClass').value,
+      subject: $('gSubj').value,
+      maxTime: App.guidanceDates.length,
+      teacher: $('guidance_teacher').value,
+      records: records
+    });
+    Utils.toast('✅ บันทึกกิจกรรมแนะแนวสำเร็จ');
+  } catch (e) { Utils.toast(e.message, 'error'); }
+  Utils.hideLoading();
+}
+
+
+// 4. พิมพ์รายงานแนะแนว (4 หน้า ตามต้นฉบับโรงเรียนบ้านคลอง 14)
+function printGuidanceReport() {
+  const cls = $('gClass').value;
+  const year = $('gYear').value;
+  // ดึงเทอมอัตโนมัติจากชื่อชั้น ถ้าไม่มีให้เว้นว่าง
+  const termMatch = cls.match(/เทอม (\d)/);
+  const term = termMatch ? termMatch[1] : '........'; 
+  const clsName = cls.split('เทอม')[0].trim(); // ตัดคำว่าเทอมออกให้เหลือแค่ ม.1, ป.1
+
+  const maxTime = parseInt($('guidance_max_time').value) || 20;
+  let rawTeacherName = $('guidance_teacher').value.trim() || '........................................................';
+  let teachers = rawTeacherName.split(/\s*(?:และ|\/|,)\s*/).filter(t => t);
+  if (teachers.length === 0) teachers = ['........................................................'];
+
+  const rows = [...$$('#guidanceBody tr[data-guidesid]')].map((tr, i) => {
+    return {
+      no: i + 1, 
+      name: tr.querySelector('.ass-name').textContent,
+      attended: tr.querySelector('.guide-time').value,
+      result: tr.querySelector('.guide-result').value,
+      note: tr.querySelector('.guide-note').value
+    };
+  });
+
+  if (!rows.length) return Utils.toast('ไม่พบข้อมูลนักเรียน', 'error');
+
+  let passCount = 0; let failCount = 0;
+  rows.forEach(r => { if(r.result === 'ผ่าน') passCount++; else failCount++; });
+
+  const win = window.open('', '_blank');
+  const html = `
+    <!DOCTYPE html>
+    <html lang="th">
+    <head>
+      <meta charset="utf-8">
+      <title>รายงานกิจกรรมแนะแนว</title>
+      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+      <style>
+        @page { size: A4 portrait; margin: 15mm; }
+        body { font-family: 'Sarabun', sans-serif; font-size: 15px; color: #000; margin: 0; line-height: 1.4; }
+        .page { page-break-after: always; min-height: 260mm; position: relative; padding: 10px; }
+        
+        .text-center { text-align: center; }
+        .text-left { text-align: left; }
+        .fw-bold { font-weight: bold; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #000; padding: 6px; text-align: center; }
+        th { background: #f9fafb; font-weight: bold; }
+        
+        .indent { text-indent: 40px; }
+        .sign-flex { display: flex; justify-content: center; gap: 40px; margin-top: 30px; text-align: center; }
+        
+        /* สไตล์ตารางเช็คชื่อหน้า 4 (คอลัมน์เล็กๆ) */
+        .att-table th, .att-table td { padding: 3px; font-size: 11px; }
+        .att-col { width: 18px; }
+      </style>
+    </head>
+    <body>
+
+      <!-- ================= หน้า 1: ปกวิสัยทัศน์ ================= -->
+      <div class="page">
+        <div class="text-center" style="margin-bottom:30px;">
+          <div class="fw-bold" style="font-size:18px;">หลักสูตรการศึกษาขั้นพื้นฐาน ระดับชั้น ${clsName} ภาคเรียนที่ ${term} ปีการศึกษา ${year}</div>
+          <div class="fw-bold" style="font-size:18px;">โรงเรียนบ้านคลอง ๑๔  อำเภอองครักษ์  จังหวัดนครนายก</div>
+          <div style="margin-top:10px; font-size:16px;">ครูประจำชั้น ${teachers.join(' และ ')}</div>
+        </div>
+
+        <table style="width: 70%; margin: 0 auto 40px;">
+          <tr>
+            <th rowspan="2" style="width:30%;">นักเรียนทั้งหมด</th>
+            <th colspan="2">จำนวนนักเรียน</th>
+            <th rowspan="2" style="width:25%;">หมายเหตุ</th>
+          </tr>
+          <tr>
+            <th style="width:22%;">ผ่าน</th><th style="width:22%;">ไม่ผ่าน</th>
+          </tr>
+          <tr>
+            <td class="fw-bold" style="font-size:18px;"><br>${rows.length} คน<br><br></td>
+            <td class="fw-bold" style="font-size:18px;">${passCount}</td>
+            <td class="fw-bold" style="font-size:18px;">${failCount}</td>
+            <td></td>
+          </tr>
+        </table>
+
+        <div class="text-center fw-bold" style="font-size:18px;">วิสัยทัศน์</div>
+        <div class="indent" style="text-align:justify; margin-bottom:20px;">
+          โรงเรียนบ้านคลอง ๑๔ มุ่งจัดการศึกษาให้เยาวชนเป็นคนดี มีคุณธรรม มีทักษะในการสื่อสาร มีความรู้ความสามารถเต็มเต็มตามศักยภาพของแต่ละบุคคล มีเจตคติที่ดีในการประกอบอาชีพสุจริตและใช้ชีวิตในสังคมได้อย่างมีความสุขตามแนวปรัชญาเศรษฐกิจพอเพียงด้วยกระบวนการบริหารจัดการที่ทันสมัยและการมีส่วนร่วมของบุคคลทั้งในและนอกสถานศึกษา
+        </div>
+
+        <div class="text-center fw-bold" style="font-size:18px;">พันธกิจ</div>
+        <div style="margin-bottom:20px; padding-left:20px;">
+          ๑. ส่งเสริมสนับสนุนให้ชุมชนเข้ามามีส่วนร่วมในการจัดการศึกษา และใช้ภูมิปัญญาท้องถิ่น<br>
+          ๒. จัดการเรียนการสอนโดยยึดนักเรียนเป็นสำคัญ นักเรียนแสวงหาความรู้ด้วยตนเองสร้างองค์ความรู้ได้และมีคุณธรรม จริยธรรมที่ดีงาม<br>
+          ๓. ส่งเสริมสนับสนุนให้ครูและบุคลากรทางการศึกษาได้พัฒนาตนเองและทำการวิจัยในชั้นเรียน<br>
+          ๔. จัดสภาพแวดล้อมของโรงเรียนให้เอื้อต่อการจัดการเรียนการสอน<br>
+          ๕. จัดกิจกรรมโครงการพระราชดำริสมเด็จพระเทพรัตนราชสุดาฯสยามบรมราชกุมารีอย่างต่อเนื่องและเป็นระบบ
+        </div>
+
+        <div class="text-center fw-bold" style="font-size:18px;">เป้าหมาย</div>
+        <div style="padding-left:20px;">
+          ๑. ชุมชนมีส่วนร่วมในการจัดการศึกษา<br>
+          ๒. นำภูมิปัญญาท้องถิ่นมาใช้ในการจัดการเรียนการสอน<br>
+          ๓. ครูจัดการเรียนรู้โดยยึดนักเรียนเป็นสำคัญ<br>
+          ๔. นักเรียนรู้จักแสวงหาความรู้ได้ด้วยตนเองและสร้างองค์ความรู้ได้<br>
+          ๕. นักเรียนมีคุณธรรม จริยธรรมที่ดีงาม<br>
+          ๖. ส่งเสริมสนับสนุนครูและบุคลากรทางการศึกษาพัฒนาตนเองอยู่เสมอและทำการวิจัยในชั้นเรียน<br>
+          ๗. จัดสภาพแวดล้อมในโรงเรียนให้เอื้อต่อการเรียนรู้<br>
+          ๘. จัดกิจกรรมตามโครงการพระราชดำริอย่างต่อเนื่องและเป็นระบบ
+        </div>
+      </div>
+
+      <!-- ================= หน้า 2: รายชื่อนักเรียนและลายเซ็น ================= -->
+      <div class="page">
+        <div class="text-right fw-bold" style="margin-bottom:10px;">จำนวนนักเรียน ${rows.length} คน</div>
+        <table>
+          <thead>
+            <tr><th style="width:50px;">ที่</th><th style="text-align:left; padding-left:15px;">ชื่อ – สกุล</th><th style="width:30%;">หมายเหตุ</th></tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `<tr><td>${r.no}</td><td style="text-align:left; padding-left:15px;">${r.name}</td><td>${r.note}</td></tr>`).join('')}
+          </tbody>
+        </table>
+
+        <div class="sign-flex" style="margin-top: 50px;">
+          ${teachers.map(t => `
+            <div>
+              ลงชื่อ..........................................................ครูประจำชั้น<br>
+              <div style="margin-top:10px;">( ${t} )</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- ================= หน้า 3: บันทึกการจัดกิจกรรม ================= -->
+      <div class="page">
+        <div class="text-center fw-bold" style="font-size:18px; margin-bottom:15px;">บันทึกการจัดกิจกรรม</div>
+        <table>
+          <thead>
+            <tr><th style="width:15%;">ครั้งที่</th><th style="width:30%;">วัน/เดือน/ปี</th><th>ผู้สอน</th></tr>
+          </thead>
+          <tbody>
+            ${Array(maxTime).fill(0).map((_, i) => `<tr><td style="height:28px;">${i+1}</td><td></td><td></td></tr>`).join('')}
+          </tbody>
+        </table>
+
+        <div style="margin-top: 30px;">
+          ${Array(8).fill('<div style="border-bottom:1px dotted #000; height:30px; margin-bottom:5px;"></div>').join('')}
+        </div>
+      </div>
+
+      <!-- ================= หน้า 4: ตารางเช็คชื่อ (20 ช่อง) ================= -->
+      <div class="page">
+        <div class="text-center fw-bold" style="font-size:18px;">การเข้าร่วมกิจกรรมแนะแนว</div>
+        <div class="fw-bold" style="margin-bottom:10px;">ชั้น ${cls}</div>
+        
+        <div style="font-size:13px; line-height:1.6; margin-bottom:15px;">
+          <b>คำชี้แจง</b><br>
+          ให้ผู้รับผิดชอบกิจกรรมเขียน ชื่อ/สกุล/ชั้น ลงวันที่ของแต่ละเดือนที่มีการปฏิบัติกิจกรรม<br>
+          ระบุสาเหตุ ป/ล/ข ด้วยปากกาแดง นักเรียนที่ไม่เข้าร่วมกิจกรรมในแต่ละวัน
+        </div>
+
+        <table class="att-table">
+          <thead>
+            <tr>
+              <th rowspan="2" style="width:25px;">ที่</th>
+              <th rowspan="2" style="text-align:left; padding-left:5px; min-width:140px;">ชื่อ – สกุล</th>
+              <th colspan="${maxTime}">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>
+              <th rowspan="2" style="width:35px;">รวม</th>
+              <th rowspan="2" style="width:35px;">ผล<br>ผ่าน</th>
+              <th rowspan="2" style="width:35px;">ผล<br>ไม่ผ่าน</th>
+            </tr>
+            <tr>
+              ${Array(maxTime).fill(0).map((_, i) => `<th class="att-col">${i+1}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${r.no}</td>
+                <td style="text-align:left; padding-left:5px;">${r.name}</td>
+                ${Array(maxTime).fill('<td class="att-col"></td>').join('')}
+                <td class="fw-bold">${r.attended}</td>
+                <td class="fw-bold">${r.result === 'ผ่าน' ? '✓' : ''}</td>
+                <td class="fw-bold">${r.result !== 'ผ่าน' ? '✓' : ''}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+    </body>
+    </html>
+  `;
+  win.document.open(); win.document.write(html); win.document.close();
+}
+
+  
+  // ฟังก์ชันพิมพ์รายงานแนะแนว (อัปเดตหน้าปกใหม่ตามภาพต้นฉบับ)
+function printGuidanceReport() {
+  const cls = $('gClass').value;
+  const year = $('gYear').value;
+  const term = $('guide_term').value || '.......';
+  const clsName = cls.split('เทอม')[0].trim(); 
+
+  // กำหนดชื่อผู้บริหารตามภาพ
+  const evalHeadName = "นางสาวกิตติญา สินทม";
+  const directorName = "นางปราณี วาดเขียน";
+  const schoolName = "โรงเรียนบ้านคลอง ๑๔";
+
+  let maxTime = App.guidanceDates.length;
+  const displayCols = Math.max(20, maxTime);
+
+  let rawTeacherName = $('guidance_teacher').value.trim() || '........................................................';
+  let teachers = rawTeacherName.split(/\s*(?:และ|\/|,)\s*/).filter(t => t);
+  if (teachers.length === 0) teachers = ['........................................................'];
+
+  const rows = [...$$('#guidanceBody tr[data-guidesid]')].map((tr, i) => {
+    return {
+      no: i + 1, 
+      name: tr.querySelector('.ass-name').textContent,
+      attended: tr.querySelector('.guide-time').value,
+      result: tr.querySelector('.guide-result').value,
+      note: tr.querySelector('.guide-note').value
+    };
+  });
+
+  if (!rows.length) return Utils.toast('ไม่พบข้อมูลนักเรียน', 'error');
+
+  let passCount = 0; let failCount = 0;
+  rows.forEach(r => { if(r.result === 'ผ่าน') passCount++; else failCount++; });
+
+  // ฟังก์ชันช่วยจัดข้อความภาษาไทยแนวตั้ง
+  const thaiVert = (str) => {
+    let res = '';
+    for(let i = 0; i < str.length; i++){
+      let ch = str[i];
+      if(ch === ' ') continue; 
+      while(i + 1 < str.length && str[i + 1].match(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/)){
+        ch += str[++i];
+      }
+      res += ch + '<br>';
+    }
+    return res;
+  };
+
+  const getVeryShortDate = (dStr) => {
+    const p = dStr.split('/');
+    if(p.length !== 3) return dStr;
+    const m = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    const yy = p[2].substring(2);
+    return `${parseInt(p[0])}${m[parseInt(p[1])-1]}${yy}`;
+  };
+
+  const win = window.open('', '_blank');
+  const html = `
+    <!DOCTYPE html>
+    <html lang="th">
+    <head>
+      <meta charset="utf-8">
+      <title>รายงานกิจกรรมแนะแนว_${cls}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+      <style>
+        @page { size: A4 portrait; margin: 15mm; }
+        body { font-family: 'Sarabun', sans-serif; font-size: 15px; color: #000; margin: 0; line-height: 1.4; }
+        .page { page-break-after: always; min-height: 260mm; position: relative; padding: 10px 25px; }
+        
+        .text-center { text-align: center; }
+        .text-left { text-align: left; }
+        .fw-bold { font-weight: bold; }
+        
+        /* สไตล์ตารางทั่วไป */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #000; padding: 6px; text-align: center; }
+
+        /* สไตล์เฉพาะหน้าปกใหม่ */
+        .cover-box { border: 1.5px solid #000; border-radius: 12px; padding: 15px; text-align: center; margin-bottom: 15px; }
+        .approval-box { border: 1.5px solid #000; border-radius: 35px; padding: 25px 30px; text-align: left; margin-top: 20px; }
+        .stat-table { width: 90%; margin: 20px auto; font-weight: bold; font-size: 16px; }
+        .stat-table th, .stat-table td { border: 1px solid #000; padding: 10px; }
+        .sign-line { margin-top: 15px; font-size: 16px; }
+        
+        .radio-circle { display: inline-block; width: 14px; height: 14px; border: 1.5px solid #000; border-radius: 50%; vertical-align: middle; margin-right: 5px; margin-top: -2px; }
+
+        /* สไตล์สำหรับกล่องหน้า 3 */
+        .rounded-header { border: 1px solid #000; border-radius: 8px; padding: 8px; width: 65%; margin: 0 auto 15px; text-align: center; font-size: 18px; font-weight: bold; }
+        .sign-flex-bottom { display: flex; justify-content: space-around; margin-top: 40px; }
+        
+        /* สไตล์ตารางเช็คชื่อหน้า 5 */
+        .att-table { margin-top: 10px; }
+        .att-table th, .att-table td { padding: 3px; font-size: 12px; }
+        .att-col { width: 18px; padding: 0 !important; }
+        .red-date { color: red; font-size: 11px; font-weight: normal; line-height: 1.1; padding-top: 5px; vertical-align: top; }
+        .vert-header { font-size: 12px; line-height: 1.1; padding-top: 5px; vertical-align: top; }
+      </style>
+    </head>
+    <body>
+
+      <!-- ================= หน้า 1: ปกใหม่ตามภาพ ================= -->
+      <div class="page">
+        <div class="text-center">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg/1200px-The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg.png" style="width: 80px; margin-bottom: 10px;">
+        </div>
+
+        <div class="cover-box">
+          <div class="fw-bold" style="font-size: 22px;">แบบบันทึกผลกิจกรรมแนะแนว</div>
+          <div class="fw-bold" style="font-size: 18px; margin-top: 8px;">
+            ระดับชั้น <span style="border-bottom: 1.5px dotted #000; display: inline-block; min-width: 350px;">${clsName}</span>
+          </div>
+        </div>
+
+        <div class="text-center" style="font-size: 16px; line-height: 1.6;">
+          หลักสูตรการศึกษาขั้นพื้นฐาน ระดับชั้น <span style="border-bottom: 1px dotted #000; min-width: 60px; display: inline-block;">${clsName}</span>
+          ภาคเรียนที่ <span style="border-bottom: 1px dotted #000; min-width: 40px; display: inline-block;">${term}</span>
+          ปีการศึกษา <span style="border-bottom: 1px dotted #000; min-width: 60px; display: inline-block;">${year}</span><br>
+          โรงเรียนบ้านคลอง ๑๔ อำเภอองครักษ์ จังหวัดนครนายก<br>
+          ครูประจำชั้น<br>
+          <span style="border-bottom: 1.5px dotted #000; display: inline-block; min-width: 380px;">${teachers.join(' และ ')}</span>
+        </div>
+
+        <table class="stat-table">
+          <tr>
+            <td rowspan="2" style="width: 28%;">นักเรียน<br>ทั้งหมด</td>
+            <td colspan="2">จำนวนนักเรียน</td>
+            <td rowspan="2" style="width: 28%;">หมายเหตุ</td>
+          </tr>
+          <tr>
+            <td style="width: 22%;">ผ่าน</td>
+            <td style="width: 22%;">ไม่ผ่าน</td>
+          </tr>
+          <tr>
+            <td style="padding: 15px 0;">${rows.length}</td>
+            <td>${passCount}</td>
+            <td>${failCount}</td>
+            <td></td>
+          </tr>
+        </table>
+
+        <div class="approval-box">
+          <div class="fw-bold" style="font-size: 18px; margin-bottom: 20px;">การอนุมัติผลการเรียน</div>
+
+          <div style="display: flex; justify-content: space-between; text-align: left;">
+            <div style="flex: 1;">
+              ลงชื่อ............................................................ครูประจำชั้น<br>
+              <div style="margin-top:5px; padding-left: 20px;">( <span style="display:inline-block; min-width:140px; text-align:center;">${teachers[0] || ''}</span> )</div>
+            </div>
+            ${teachers.length > 1 ? `
+            <div style="flex: 1;">
+              ลงชื่อ............................................................ครูประจำชั้น<br>
+              <div style="margin-top:5px; padding-left: 20px;">( <span style="display:inline-block; min-width:140px; text-align:center;">${teachers[1]}</span> )</div>
+            </div>` : ''}
+          </div>
+
+          <div class="sign-line" style="margin-top: 25px;">
+            ลงชื่อ......................................................................หัวหน้ากิจกรรมพัฒนาผู้เรียน<br>
+            <span style="display:inline-block; margin-left: 40px; margin-top:5px;">(......................................................................)</span>
+          </div>
+
+          <div class="sign-line">
+            ลงชื่อ......................................................................หัวหน้างานวัดผลและประเมินผล<br>
+            <span style="display:inline-block; margin-left: 40px; margin-top:5px;">( ${evalHeadName} )</span>
+          </div>
+
+          <div style="margin-top: 30px; text-align: right; padding-right: 20px;">
+            <div style="font-weight: bold; text-align: center; display: inline-block;">
+               เรียน เสนอเพื่อพิจารณาอนุมัติผลการเรียน<br><br>
+               <div style="display: flex; justify-content: center; gap: 40px; margin-bottom: 30px;">
+                  <span><span class="radio-circle"></span> อนุมัติ</span>
+                  <span><span class="radio-circle"></span> ไม่อนุมัติ</span>
+               </div>
+               ลงชื่อ......................................................................<br>
+               <div style="margin-top: 8px;">นางปราณี วาดเขียน</div>
+               <div>ผู้อำนวยการ${schoolName}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= หน้า 2: วิสัยทัศน์ พันธกิจ เป้าหมาย ================= -->
+      <div class="page" style="padding: 40px;">
+        <div class="text-center fw-bold" style="font-size:18px;">วิสัยทัศน์</div>
+        <div style="text-indent: 40px; text-align:justify; margin-bottom:30px;">
+          โรงเรียนบ้านคลอง ๑๔ มุ่งจัดการศึกษาให้เยาวชนเป็นคนดี มีคุณธรรม มีทักษะในการสื่อสาร มีความรู้ความสามารถเต็มเต็มตามศักยภาพของแต่ละบุคคล มีเจตคติที่ดีในการประกอบอาชีพสุจริตและใช้ชีวิตในสังคมได้อย่างมีความสุขตามแนวปรัชญาเศรษฐกิจพอเพียงด้วยกระบวนการบริหารจัดการที่ทันสมัยและการมีส่วนร่วมของบุคคลทั้งในและนอกสถานศึกษา
+        </div>
+
+        <div class="text-center fw-bold" style="font-size:18px;">พันธกิจ</div>
+        <div style="margin-bottom:30px; padding-left:20px; line-height: 1.8;">
+          ๑. ส่งเสริมสนับสนุนให้ชุมชนเข้ามามีส่วนร่วมในการจัดการศึกษา และใช้ภูมิปัญญาท้องถิ่น<br>
+          ๒. จัดการเรียนการสอนโดยยึดนักเรียนเป็นสำคัญ นักเรียนแสวงหาความรู้ด้วยตนเองสร้างองค์ความรู้ได้และมีคุณธรรม จริยธรรมที่ดีงาม<br>
+          ๓. ส่งเสริมสนับสนุนให้ครูและบุคลากรทางการศึกษาได้พัฒนาตนเองและทำการวิจัยในชั้นเรียน<br>
+          ๔. จัดสภาพแวดล้อมของโรงเรียนให้เอื้อต่อการจัดการเรียนการสอน<br>
+          ๕. จัดกิจกรรมโครงการพระราชดำริสมเด็จพระเทพรัตนราชสุดาฯสยามบรมราชกุมารีอย่างต่อเนื่องและเป็นระบบ
+        </div>
+
+        <div class="text-center fw-bold" style="font-size:18px;">เป้าหมาย</div>
+        <div style="padding-left:20px; line-height: 1.8;">
+          ๑. ชุมชนมีส่วนร่วมในการจัดการศึกษา<br>
+          ๒. นำภูมิปัญญาท้องถิ่นมาใช้ในการจัดการเรียนการสอน<br>
+          ๓. ครูจัดการเรียนรู้โดยยึดนักเรียนเป็นสำคัญ<br>
+          ๔. นักเรียนรู้จักแสวงหาความรู้ได้ด้วยตนเองและสร้างองค์ความรู้ได้<br>
+          ๕. นักเรียนมีคุณธรรม จริยธรรมที่ดีงาม<br>
+          ๖. ส่งเสริมสนับสนุนครูและบุคลากรทางการศึกษาพัฒนาตนเองอยู่เสมอและทำการวิจัยในชั้นเรียน<br>
+          ๗. จัดสภาพแวดล้อมในโรงเรียนให้เอื้อต่อการเรียนรู้<br>
+          ๘. จัดกิจกรรมตามโครงการพระราชดำริอย่างต่อเนื่องและเป็นระบบ
+        </div>
+      </div>
+
+      <!-- ================= หน้า 3: รายชื่อตามรูปแบบกระดาษ ================= -->
+      <div class="page">
+        <div class="rounded-header">กิจกรรมแนะแนว ระดับชั้น ${clsName}</div>
+        <div style="margin-left: 15%; font-size: 16px; margin-bottom: 5px;">จำนวนนักเรียน...........${rows.length}...........คน</div>
+        
+        <table>
+          <thead>
+            <tr><th style="width:40px; font-weight:normal;">ที่</th><th style="font-weight:normal;">ชื่อ – สกุล</th><th style="width:30%; font-weight:normal;">หมายเหตุ</th></tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `<tr><td>${r.no}</td><td style="text-align:left; padding-left:15px;">${r.name}</td><td>${r.note}</td></tr>`).join('')}
+            ${Array(Math.max(0, 20 - rows.length)).fill('<tr><td><br></td><td></td><td></td></tr>').join('')}
+          </tbody>
+        </table>
+
+        <div class="sign-flex-bottom">
+          ${teachers.map(t => `
+            <div style="text-align:center;">
+              ลงชื่อ..........................................................ครูประจำชั้น<br>
+              <div style="margin-top:10px;">( ${t} )</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- ================= หน้า 4: บันทึกการจัดกิจกรรม ================= -->
+      <div class="page">
+        <div class="text-center fw-bold" style="font-size:18px; margin-bottom:5px;">บันทึกการจัดกิจกรรม</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:8%; font-weight:normal;">ครั้ง<br>ที่</th>
+              <th style="width:12%; font-weight:normal;">วัน/<br>เดือน/ปี</th>
+              <th style="font-weight:normal;"></th>
+              <th style="width:20%; font-weight:normal;">ผู้สอน</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Array(displayCols).fill(0).map((_, i) => {
+              const dStr = App.guidanceDates[i] ? getVeryShortDate(App.guidanceDates[i]) : '';
+              const tStr = App.guidanceDates[i] ? teachers[0] : '';
+              return `<tr><td style="height:28px;">${i+1}</td><td style="font-size:13px;">${dStr}</td><td></td><td style="font-size:13px;">${tStr}</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <div style="margin-top:20px; text-align:center; letter-spacing: 2px;">......................................................................................................................................................................................................</div>
+      </div>
+
+      <!-- ================= หน้า 5: ตารางเช็คชื่อ (ตัวหนังสือแนวตั้ง) ================= -->
+      <div class="page">
+        <div class="text-center fw-bold" style="font-size:18px;">การเข้าร่วมกิจกรรมแนะแนว</div>
+        <div class="fw-bold" style="margin-bottom:10px;">ชั้น....................${cls}....................</div>
+        
+        <div style="font-size:14px; font-weight:bold; text-decoration:underline;">คำชี้แจง</div>
+        <div style="font-size:14px; line-height:1.5; margin-bottom:10px; margin-left:15px;">
+          1. ให้ผู้รับผิดชอบกิจกรรมเขียน ชื่อ/สกุล/ชั้น<br>
+          2. ลงวันที่ของแต่ละเดือนที่มีการปฏิบัติกิจกรรม<br>
+          3. ระบุสาเหตุ ป/ล/ข ด้วยปากกาแดง นักเรียนที่ไม่เข้าร่วมกิจกรรมในแต่ละวัน
+        </div>
+
+        <table class="att-table">
+          <thead>
+            <tr>
+              <th rowspan="3" style="width:25px; font-weight:normal;">ที่</th>
+              <th rowspan="3" style="text-align:center; min-width:130px; font-weight:normal;">ชื่อ – สกุล</th>
+              <th colspan="${displayCols}" style="font-weight:normal;">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>
+              <th rowspan="3" class="vert-header">${thaiVert('รวม')}</th>
+              <th rowspan="3" class="vert-header">${thaiVert('ผลการเรียนผ่าน')}</th>
+              <th rowspan="3" class="vert-header">${thaiVert('ผลการเรียนไม่ผ่าน')}</th>
+            </tr>
+            <tr>
+              ${Array(displayCols).fill(0).map((_, i) => `<th class="att-col" style="font-weight:normal; border-bottom:none;">${i+1}</th>`).join('')}
+            </tr>
+            <tr>
+              ${Array(displayCols).fill(0).map((_, i) => {
+                const dateVert = App.guidanceDates[i] ? thaiVert(getVeryShortDate(App.guidanceDates[i])) : '';
+                return `<th class="att-col red-date" style="border-top:none;">${dateVert}</th>`;
+              }).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${r.no}</td>
+                <td style="text-align:left; padding-left:5px;">${r.name}</td>
+                ${Array(displayCols).fill('<td class="att-col"></td>').join('')}
+                <td class="fw-bold">${r.attended}</td>
+                <td class="fw-bold">${r.result === 'ผ่าน' ? '✓' : ''}</td>
+                <td class="fw-bold">${r.result !== 'ผ่าน' ? '✓' : ''}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
     </body>
     </html>
   `;
