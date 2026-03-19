@@ -1283,6 +1283,7 @@ body{
 
           <!-- แท็บใหม่: อ่าน คิดวิเคราะห์ เขียน -->
 <button type="button" class="settings-tab" onclick="switchSettingsTab('rtw', this)">
+  
   <span class="tab-icon">📖</span>
   <span class="tab-label">อ่าน/คิด/เขียน</span>
 </button>
@@ -1291,6 +1292,12 @@ body{
             <span class="tab-icon">🏫</span>
             <span class="tab-label">โรงเรียน</span>
           </button>
+
+          <!-- เพิ่มแท็บแนะแนวเข้าไปในเมนู -->
+<button type="button" class="settings-tab" onclick="switchSettingsTab('guidance', this)">
+  <span class="tab-icon">🧭</span>
+  <span class="tab-label">แนะแนว</span>
+</button>
         </div>
       </div>
 
@@ -2244,6 +2251,7 @@ async function loadGrades() {
     renderHolisticTable(App.students, 'assContainer', 'assBody', 'subject');
     renderHolisticTable(App.students, 'hrAssContainer', 'hrAssBody', 'homeroom');
     renderRTWTable();
+    renderGuidanceTable();
 
     showScoreMain($('tabScoreMain'));
     Utils.toast(`โหลดข้อมูลสำเร็จ: โหมด${App.isSemMode ? 'มัธยม (รายภาคเรียน)' : 'ประถม (รายปี)'}`);
