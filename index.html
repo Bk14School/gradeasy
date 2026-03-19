@@ -2930,9 +2930,26 @@ function renderRTWTable() {
 }
 
 // 2. ฟังก์ชันคำนวณคะแนนและตัดเกรด
+// ฟังก์ชันคำนวณคะแนน RTW และเลื่อนเคอร์เซอร์อัตโนมัติ (แบบเลื่อนลง)
 function calcRTWRow(input) {
   if (!input) return;
   const tr = input.closest('tr');
+  
+  // 1. ตรวจสอบค่าที่กรอก (ไม่ให้เกิน Max)
+  let val = input.value;
+  const max = parseFloat(input.getAttribute('max'));
+  
+  if (parseFloat(val) > max) {
+    input.value = max;
+    val = max;
+    Utils.toast(`คะแนนเต็มคือ ${max}`, 'warning');
+  }
+  if (parseFloat(val) < 0) {
+    input.value = 0;
+    val = 0;
+  }
+
+  // 2. คำนวณผลรวมรายแถว
   const r1 = parseFloat(tr.querySelector('.rtw-r1').value) || 0;
   const r2 = parseFloat(tr.querySelector('.rtw-r2').value) || 0;
   const c1 = parseFloat(tr.querySelector('.rtw-c1').value) || 0;
@@ -2943,16 +2960,30 @@ function calcRTWRow(input) {
   const total = r1 + r2 + c1 + c2 + w1 + w2;
   tr.querySelector('.rtw-total').textContent = total;
 
+  // 3. ตัดเกรด/ระดับคุณภาพ
   const gBadge = tr.querySelector('.rtw-grade');
   let level = ""; let cls = "";
-
   if (total >= 86) { level = "ดีเยี่ยม (3)"; cls = "res-3"; }
   else if (total >= 70) { level = "ดี (2)"; cls = "res-2"; }
   else if (total >= 50) { level = "ผ่าน (1)"; cls = "res-1"; }
   else { level = "ไม่ผ่าน (0)"; cls = "res-0"; }
-
   gBadge.textContent = level;
   gBadge.className = `res-badge rtw-grade ${cls}`;
+
+  // 4. ระบบเลื่อนเคอร์เซอร์อัตโนมัติ (Vertical Auto-tab - เลื่อนลง)
+  // ถ้าพิมพ์ครบ 2 หลัก ให้เลื่อนลงไปหานักเรียนคนถัดไปในช่องเดิม
+  if (document.activeElement === input && input.value.length >= 2) {
+    const nextTr = tr.nextElementSibling; // หาแถวถัดไป (คนถัดไป)
+    if (nextTr) {
+      // ค้นหาคลาสของช่องที่กำลังพิมพ์อยู่ (เช่น rtw-r1, rtw-c1)
+      const currentClass = Array.from(input.classList).find(c => c.startsWith('rtw-'));
+      const nextInp = nextTr.querySelector('.' + currentClass);
+      if (nextInp) {
+        nextInp.focus();
+        nextInp.select();
+      }
+    }
+  }
 }
 
 // 3. ฟังก์ชันบันทึกข้อมูล
@@ -2987,64 +3018,118 @@ async function saveRTWData() {
 }
 
 // 4. ฟังก์ชันพิมพ์รายงาน (PDF)
+// ฟังก์ชันพิมพ์รายงาน RTW แบบละเอียด (แยกครั้ง + รวมรายด้าน)
 function printRTWReport() {
-  const rows = [...$$('#rtwBody tr[data-rtwsid]')].map((tr, i) => ({
-    no: i + 1,
-    name: tr.querySelector('.ass-name').textContent,
-    r: (parseFloat(tr.querySelector('.rtw-r1').value)||0) + (parseFloat(tr.querySelector('.rtw-r2').value)||0),
-    c: (parseFloat(tr.querySelector('.rtw-c1').value)||0) + (parseFloat(tr.querySelector('.rtw-c2').value)||0),
-    w: (parseFloat(tr.querySelector('.rtw-w1').value)||0) + (parseFloat(tr.querySelector('.rtw-w2').value)||0),
-    total: tr.querySelector('.rtw-total').textContent,
-    grade: tr.querySelector('.rtw-grade').textContent
-  }));
+  const rows = [...$$('#rtwBody tr[data-rtwsid]')].map((tr, i) => {
+    const getVal = (cls) => parseFloat(tr.querySelector(cls).value) || 0;
+    
+    const r1 = getVal('.rtw-r1'), r2 = getVal('.rtw-r2');
+    const c1 = getVal('.rtw-c1'), c2 = getVal('.rtw-c2');
+    const w1 = getVal('.rtw-w1'), w2 = getVal('.rtw-w2');
+    
+    return {
+      no: i + 1,
+      name: tr.querySelector('.ass-name').textContent,
+      r1, r2, rt: r1 + r2, // การอ่าน
+      c1, c2, ct: c1 + c2, // การคิด
+      w1, w2, wt: w1 + w2, // การเขียน
+      total: tr.querySelector('.rtw-total').textContent,
+      grade: tr.querySelector('.rtw-grade').textContent
+    };
+  });
 
+  if (!rows.length) return Utils.toast('ไม่พบข้อมูลนักเรียน', 'error');
+
+  const win = window.open('', '_blank');
   const html = `
-    <html>
+    <!DOCTYPE html>
+    <html lang="th">
     <head>
       <meta charset="utf-8">
-      <title>รายงานการอ่านคิดวิเคราะห์</title>
+      <title>สรุปผลการประเมินการอ่าน_คิดวิเคราะห์_และเขียน</title>
       <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
       <style>
-        body { font-family: 'Sarabun', sans-serif; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-        th { background: #f2f2f2; }
+        @page { size: A4 landscape; margin: 10mm; }
+        body { font-family: 'Sarabun', sans-serif; font-size: 13px; line-height: 1.4; margin: 0; padding: 10px; }
+        .text-center { text-align: center; }
         .text-left { text-align: left; }
+        h2 { margin: 0 0 5px 0; font-size: 18px; }
+        p { margin: 0 0 15px 0; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td { border: 1px solid #000; padding: 4px 2px; text-align: center; overflow: hidden; }
+        th { background: #f3f4f6; font-size: 11px; }
+        .col-name { text-align: left; padding-left: 5px; width: 180px; }
+        .col-no { width: 30px; }
+        .bg-r { background: #eff6ff; } /* สีฟ้า - อ่าน */
+        .bg-c { background: #fff7ed; } /* สีส้ม - คิด */
+        .bg-w { background: #f0fdf4; } /* สีเขียว - เขียน */
+        .fw-bold { font-weight: bold; }
+        .footer { margin-top: 15px; display: flex; justify-content: flex-end; }
+        .sign-box { text-align: center; width: 250px; margin-top: 30px; }
       </style>
     </head>
     <body>
-      <h2 style="text-align:center;">แบบสรุปผลการประเมินการอ่าน คิดวิเคราะห์ และเขียน</h2>
-      <p style="text-align:center;">ชั้น ${$('gClass').value} | รายวิชา ${$('gSubj').value} | ปีการศึกษา ${$('gYear').value}</p>
+      <div class="text-center">
+        <h2>แบบสรุปผลการประเมินการอ่าน คิดวิเคราะห์ และเขียน (คะแนนเต็ม 100)</h2>
+        <p>โรงเรียนบ้านคลอง 14 | ชั้น ${$('gClass').value} | รายวิชา ${$('gSubj').value} | ปีการศึกษา ${$('gYear').value}</p>
+      </div>
+
       <table>
         <thead>
           <tr>
-            <th>ที่</th>
-            <th>ชื่อ-นามสกุล</th>
-            <th>การอ่าน (30)</th>
-            <th>การคิด (40)</th>
-            <th>การเขียน (30)</th>
-            <th>รวม (100)</th>
-            <th>ระดับคุณภาพ</th>
+            <th rowspan="2" class="col-no">ที่</th>
+            <th rowspan="2" class="col-name">ชื่อ-นามสกุล</th>
+            <th colspan="3" class="bg-r">การอ่าน (30)</th>
+            <th colspan="3" class="bg-c">การคิดวิเคราะห์ (40)</th>
+            <th colspan="3" class="bg-w">การเขียน (30)</th>
+            <th rowspan="2" style="width:50px;">รวม<br>(100)</th>
+            <th rowspan="2" style="width:80px;">ระดับคุณภาพ</th>
+          </tr>
+          <tr>
+            <th class="bg-r" style="width:40px;">ครั้ง 1<br>(15)</th>
+            <th class="bg-r" style="width:40px;">ครั้ง 2<br>(15)</th>
+            <th class="bg-r" style="width:40px;">รวม</th>
+            <th class="bg-c" style="width:40px;">ครั้ง 1<br>(20)</th>
+            <th class="bg-c" style="width:40px;">ครั้ง 2<br>(20)</th>
+            <th class="bg-c" style="width:40px;">รวม</th>
+            <th class="bg-w" style="width:40px;">ครั้ง 1<br>(15)</th>
+            <th class="bg-w" style="width:40px;">ครั้ง 2<br>(15)</th>
+            <th class="bg-w" style="width:40px;">รวม</th>
           </tr>
         </thead>
         <tbody>
           ${rows.map(r => `
             <tr>
               <td>${r.no}</td>
-              <td class="text-left">${r.name}</td>
-              <td>${r.r}</td>
-              <td>${r.c}</td>
-              <td>${r.w}</td>
-              <td><b>${r.total}</b></td>
-              <td>${r.grade}</td>
+              <td class="col-name">${r.name}</td>
+              <td class="bg-r">${r.r1 || '-'}</td>
+              <td class="bg-r">${r.r2 || '-'}</td>
+              <td class="bg-r fw-bold">${r.rt || '-'}</td>
+              <td class="bg-c">${r.c1 || '-'}</td>
+              <td class="bg-c">${r.c2 || '-'}</td>
+              <td class="bg-c fw-bold">${r.ct || '-'}</td>
+              <td class="bg-w">${r.w1 || '-'}</td>
+              <td class="bg-w">${r.w2 || '-'}</td>
+              <td class="bg-w fw-bold">${r.wt || '-'}</td>
+              <td class="fw-bold" style="font-size:14px;">${r.total}</td>
+              <td class="fw-bold">${r.grade}</td>
             </tr>
           `).join('')}
         </tbody>
       </table>
+
+      <div class="footer">
+        <div class="sign-box">
+          ลงชื่อ..........................................................<br>
+          ( ${$('ci_teacher_name').value || '..........................................................'} )<br>
+          ครูผู้สอน
+        </div>
+      </div>
     </body>
-    </html>`;
-  
-  const win = window.open('', '_blank');
+    </html>
+  `;
+
+  win.document.open();
   win.document.write(html);
   win.document.close();
 }
