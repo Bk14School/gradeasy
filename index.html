@@ -1281,6 +1281,12 @@ body{
             <span class="tab-label">ประเมิน</span>
           </button>
 
+          <!-- แท็บใหม่: อ่าน คิดวิเคราะห์ เขียน -->
+<button type="button" class="settings-tab" onclick="switchSettingsTab('rtw', this)">
+  <span class="tab-icon">📖</span>
+  <span class="tab-label">อ่าน/คิด/เขียน</span>
+</button>
+
           <button type="button" class="settings-tab" onclick="switchSettingsTab('schoolProfile', this)">
             <span class="tab-icon">🏫</span>
             <span class="tab-label">โรงเรียน</span>
@@ -1730,6 +1736,34 @@ body{
     </div>
     <button class="btn-save mt-3 w-100" onclick="saveHolisticData('homeroom')">
       💾 บันทึกผลการประเมินประจำชั้น
+    </button>
+  </div>
+</div>
+    <!-- ===== TAB: ประเมินการอ่าน คิดวิเคราะห์ และเขียน (100 คะแนน) ===== -->
+<div class="settings-panel" id="panel_rtw">
+  <div class="card mb-3" style="background:#f0f9ff; border:1px solid #bae6fd;">
+    <div style="font-weight:800; font-size:.9rem; color:#0369a1; margin-bottom:10px;">
+      📊 ประเมินความสามารถในการอ่าน คิดวิเคราะห์ และเขียน (คะแนนเต็ม 100)
+    </div>
+    <div id="rtwIndicatorLabel" class="p-2 rounded bg-white mb-2" style="font-size:0.8rem; border:1px solid #e0f2fe;">
+      <!-- จะเปลี่ยนข้อความตามชั้นเรียนอัตโนมัติ -->
+    </div>
+    
+    <div id="rtwContainer">
+      <div class="text-center text-muted py-3">กรุณาโหลดรายชื่อผู้เรียน</div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+      <div style="font-size:0.75rem; color:#64748b;">
+        * ดีเยี่ยม (86-100), ดี (70-85), ผ่าน (50-69), ไม่ผ่าน (0-49)
+      </div>
+      <button class="btn-pri" type="button" onclick="printRTWReport()">
+        🖨️ พิมพ์รายงานสรุปผล
+      </button>
+    </div>
+    
+    <button class="btn-save mt-3 w-100" onclick="saveRTWData()" style="background:linear-gradient(135deg,#0284c7,#0369a1);">
+      💾 บันทึกผลการประเมิน (100 คะแนน)
     </button>
   </div>
 </div>
@@ -2829,6 +2863,190 @@ document.addEventListener('keydown', e => {
   const target = rows[rows.indexOf(tr) + (e.key === 'ArrowUp' ? -1 : 1)]?.cells[document.activeElement.closest('td').cellIndex]?.querySelector('.sinput');
   if (target) { target.focus(); target.select(); }
 });
+
+  // =====================================================
+// NEW MODULE: การอ่าน คิดวิเคราะห์ และเขียน (RTW)
+// =====================================================
+
+// 1. ฟังก์ชันแสดงตาราง RTW
+function renderRTWTable() {
+  const container = $('rtwContainer');
+  if (!App.students.length) return;
+
+  const cls = $('gClass').value;
+  let indicatorTxt = "";
+  if (cls.match(/[ป].[1-3]/)) indicatorTxt = "📌 <b>เกณฑ์ช่วงชั้น ป.1-3:</b> เน้นการอ่านนิทาน เรื่องสั้น และการเขียนบรรยายถ่ายทอดประเด็น";
+  else if (cls.match(/[ป].[4-6]/)) indicatorTxt = "📌 <b>เกณฑ์ช่วงชั้น ป.4-6:</b> เน้นการอ่านสื่อสารสนเทศ การคิดวิเคราะห์เหตุผล และการเขียนความเรียง";
+  else indicatorTxt = "📌 <b>เกณฑ์ช่วงชั้น ม.1-3:</b> เน้นการอ่านสื่อหลากหลาย วิพากษ์ความน่าเชื่อถือ และการเขียนเชิงสร้างสรรค์/ผังความคิด";
+  $('rtwIndicatorLabel').innerHTML = indicatorTxt;
+
+  const htmlRows = App.students.map((s, idx) => {
+    const r = s.rtw_data || {}; // ข้อมูลเก่าถ้ามี
+    // แบ่งเป็น อ่าน(15,15) คิด(20,20) เขียน(15,15)
+    return `
+      <tr data-rtwsid="${s.studentId}">
+        <td class="ass-no">${idx + 1}</td>
+        <td class="ass-name" style="text-align:left; background:#fff; position:sticky; left:0; z-index:10;">${s.name}</td>
+        <td><input type="number" class="inp-ass rtw-r1" min="0" max="15" value="${r.r1 || ''}" oninput="calcRTWRow(this)"></td>
+        <td><input type="number" class="inp-ass rtw-r2" min="0" max="15" value="${r.r2 || ''}" oninput="calcRTWRow(this)"></td>
+        <td><input type="number" class="inp-ass rtw-c1" min="0" max="20" value="${r.c1 || ''}" oninput="calcRTWRow(this)"></td>
+        <td><input type="number" class="inp-ass rtw-c2" min="0" max="20" value="${r.c2 || ''}" oninput="calcRTWRow(this)"></td>
+        <td><input type="number" class="inp-ass rtw-w1" min="0" max="15" value="${r.w1 || ''}" oninput="calcRTWRow(this)"></td>
+        <td><input type="number" class="inp-ass rtw-w2" min="0" max="15" value="${r.w2 || ''}" oninput="calcRTWRow(this)"></td>
+        <td class="bg-sum rtw-total" style="font-weight:bold; color:#0369a1;">-</td>
+        <td><span class="res-badge rtw-grade">-</span></td>
+      </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="ass-wrap">
+      <table class="ass-tbl" id="rtwTable">
+        <thead>
+          <tr>
+            <th rowspan="2" class="ass-no">ที่</th>
+            <th rowspan="2" class="ass-name">ชื่อ-นามสกุล</th>
+            <th colspan="2" style="background:#dbeafe;">การอ่าน (30)</th>
+            <th colspan="2" style="background:#ffedd5;">การคิดวิเคราะห์ (40)</th>
+            <th colspan="2" style="background:#dcfce7;">การเขียน (30)</th>
+            <th rowspan="2" class="bg-sum">รวม</th>
+            <th rowspan="2" class="bg-sum">ระดับผล</th>
+          </tr>
+          <tr>
+            <th style="background:#eff6ff; font-size:10px;">ครั้งที่ 1 (15)</th>
+            <th style="background:#eff6ff; font-size:10px;">ครั้งที่ 2 (15)</th>
+            <th style="background:#fff7ed; font-size:10px;">ครั้งที่ 1 (20)</th>
+            <th style="background:#fff7ed; font-size:10px;">ครั้งที่ 2 (20)</th>
+            <th style="background:#f0fdf4; font-size:10px;">ครั้งที่ 1 (15)</th>
+            <th style="background:#f0fdf4; font-size:10px;">ครั้งที่ 2 (15)</th>
+          </tr>
+        </thead>
+        <tbody id="rtwBody">${htmlRows}</tbody>
+      </table>
+    </div>`;
+
+  // คำนวณค่าเริ่มต้น
+  $$('#rtwBody tr[data-rtwsid]').forEach(tr => calcRTWRow(tr.querySelector('.rtw-r1')));
+}
+
+// 2. ฟังก์ชันคำนวณคะแนนและตัดเกรด
+function calcRTWRow(input) {
+  if (!input) return;
+  const tr = input.closest('tr');
+  const r1 = parseFloat(tr.querySelector('.rtw-r1').value) || 0;
+  const r2 = parseFloat(tr.querySelector('.rtw-r2').value) || 0;
+  const c1 = parseFloat(tr.querySelector('.rtw-c1').value) || 0;
+  const c2 = parseFloat(tr.querySelector('.rtw-c2').value) || 0;
+  const w1 = parseFloat(tr.querySelector('.rtw-w1').value) || 0;
+  const w2 = parseFloat(tr.querySelector('.rtw-w2').value) || 0;
+
+  const total = r1 + r2 + c1 + c2 + w1 + w2;
+  tr.querySelector('.rtw-total').textContent = total;
+
+  const gBadge = tr.querySelector('.rtw-grade');
+  let level = ""; let cls = "";
+
+  if (total >= 86) { level = "ดีเยี่ยม (3)"; cls = "res-3"; }
+  else if (total >= 70) { level = "ดี (2)"; cls = "res-2"; }
+  else if (total >= 50) { level = "ผ่าน (1)"; cls = "res-1"; }
+  else { level = "ไม่ผ่าน (0)"; cls = "res-0"; }
+
+  gBadge.textContent = level;
+  gBadge.className = `res-badge rtw-grade ${cls}`;
+}
+
+// 3. ฟังก์ชันบันทึกข้อมูล
+async function saveRTWData() {
+  const records = [];
+  $$('#rtwBody tr[data-rtwsid]').forEach(tr => {
+    records.push({
+      studentId: tr.getAttribute('data-rtwsid'),
+      r1: tr.querySelector('.rtw-r1').value,
+      r2: tr.querySelector('.rtw-r2').value,
+      c1: tr.querySelector('.rtw-c1').value,
+      c2: tr.querySelector('.rtw-c2').value,
+      w1: tr.querySelector('.rtw-w1').value,
+      w2: tr.querySelector('.rtw-w2').value,
+      total: tr.querySelector('.rtw-total').textContent,
+      grade: tr.querySelector('.rtw-grade').textContent
+    });
+  });
+
+  if (!records.length) return Utils.toast('ไม่พบข้อมูล', 'error');
+  Utils.showLoading('กำลังบันทึก...');
+  try {
+    const res = await api('saveRTW', {
+      year: $('gYear').value,
+      classroom: $('gClass').value,
+      subject: $('gSubj').value,
+      records: records
+    });
+    Utils.toast('✅ ' + res);
+  } catch (e) { Utils.toast(e.message, 'error'); }
+  Utils.hideLoading();
+}
+
+// 4. ฟังก์ชันพิมพ์รายงาน (PDF)
+function printRTWReport() {
+  const rows = [...$$('#rtwBody tr[data-rtwsid]')].map((tr, i) => ({
+    no: i + 1,
+    name: tr.querySelector('.ass-name').textContent,
+    r: (parseFloat(tr.querySelector('.rtw-r1').value)||0) + (parseFloat(tr.querySelector('.rtw-r2').value)||0),
+    c: (parseFloat(tr.querySelector('.rtw-c1').value)||0) + (parseFloat(tr.querySelector('.rtw-c2').value)||0),
+    w: (parseFloat(tr.querySelector('.rtw-w1').value)||0) + (parseFloat(tr.querySelector('.rtw-w2').value)||0),
+    total: tr.querySelector('.rtw-total').textContent,
+    grade: tr.querySelector('.rtw-grade').textContent
+  }));
+
+  const html = `
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>รายงานการอ่านคิดวิเคราะห์</title>
+      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+      <style>
+        body { font-family: 'Sarabun', sans-serif; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+        th { background: #f2f2f2; }
+        .text-left { text-align: left; }
+      </style>
+    </head>
+    <body>
+      <h2 style="text-align:center;">แบบสรุปผลการประเมินการอ่าน คิดวิเคราะห์ และเขียน</h2>
+      <p style="text-align:center;">ชั้น ${$('gClass').value} | รายวิชา ${$('gSubj').value} | ปีการศึกษา ${$('gYear').value}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>ที่</th>
+            <th>ชื่อ-นามสกุล</th>
+            <th>การอ่าน (30)</th>
+            <th>การคิด (40)</th>
+            <th>การเขียน (30)</th>
+            <th>รวม (100)</th>
+            <th>ระดับคุณภาพ</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${r.no}</td>
+              <td class="text-left">${r.name}</td>
+              <td>${r.r}</td>
+              <td>${r.c}</td>
+              <td>${r.w}</td>
+              <td><b>${r.total}</b></td>
+              <td>${r.grade}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </body>
+    </html>`;
+  
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
 
 </script>
 </body>
