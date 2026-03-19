@@ -2874,59 +2874,65 @@ function renderRTWTable() {
   const container = $('rtwContainer');
   if (!App.students.length) return;
 
-  const cls = $('gClass').value;
-  let indicatorTxt = "";
-  if (cls.match(/[ป].[1-3]/)) indicatorTxt = "📌 <b>เกณฑ์ช่วงชั้น ป.1-3:</b> เน้นการอ่านนิทาน เรื่องสั้น และการเขียนบรรยายถ่ายทอดประเด็น";
-  else if (cls.match(/[ป].[4-6]/)) indicatorTxt = "📌 <b>เกณฑ์ช่วงชั้น ป.4-6:</b> เน้นการอ่านสื่อสารสนเทศ การคิดวิเคราะห์เหตุผล และการเขียนความเรียง";
-  else indicatorTxt = "📌 <b>เกณฑ์ช่วงชั้น ม.1-3:</b> เน้นการอ่านสื่อหลากหลาย วิพากษ์ความน่าเชื่อถือ และการเขียนเชิงสร้างสรรค์/ผังความคิด";
-  $('rtwIndicatorLabel').innerHTML = indicatorTxt;
-
   const htmlRows = App.students.map((s, idx) => {
-    const r = s.rtw_data || {}; // ข้อมูลเก่าถ้ามี
-    // แบ่งเป็น อ่าน(15,15) คิด(20,20) เขียน(15,15)
+    const r = s.rtw_data || {};
     return `
       <tr data-rtwsid="${s.studentId}">
         <td class="ass-no">${idx + 1}</td>
         <td class="ass-name" style="text-align:left; background:#fff; position:sticky; left:0; z-index:10;">${s.name}</td>
-        <td><input type="number" class="inp-ass rtw-r1" min="0" max="15" value="${r.r1 || ''}" oninput="calcRTWRow(this)"></td>
-        <td><input type="number" class="inp-ass rtw-r2" min="0" max="15" value="${r.r2 || ''}" oninput="calcRTWRow(this)"></td>
-        <td><input type="number" class="inp-ass rtw-c1" min="0" max="20" value="${r.c1 || ''}" oninput="calcRTWRow(this)"></td>
-        <td><input type="number" class="inp-ass rtw-c2" min="0" max="20" value="${r.c2 || ''}" oninput="calcRTWRow(this)"></td>
-        <td><input type="number" class="inp-ass rtw-w1" min="0" max="15" value="${r.w1 || ''}" oninput="calcRTWRow(this)"></td>
-        <td><input type="number" class="inp-ass rtw-w2" min="0" max="15" value="${r.w2 || ''}" oninput="calcRTWRow(this)"></td>
-        <td class="bg-sum rtw-total" style="font-weight:bold; color:#0369a1;">-</td>
+        <!-- การอ่าน ครั้ง 1 (ข้อ 1, 2) -->
+        <td><input type="number" class="inp-ass rtw-r1-1" min="0" max="8" value="${r.r1_1||''}" oninput="calcRTWRow(this)"></td>
+        <td><input type="number" class="inp-ass rtw-r1-2" min="0" max="7" value="${r.r1_2||''}" oninput="calcRTWRow(this)"></td>
+        <td class="bg-sum rtw-r1-sum">-</td>
+        <!-- การอ่าน ครั้ง 2 (ข้อ 1, 2) -->
+        <td><input type="number" class="inp-ass rtw-r2-1" min="0" max="8" value="${r.r2_1||''}" oninput="calcRTWRow(this)"></td>
+        <td><input type="number" class="inp-ass rtw-r2-2" min="0" max="7" value="${r.r2_2||''}" oninput="calcRTWRow(this)"></td>
+        <td class="bg-sum rtw-r2-sum">-</td>
+        <!-- การคิด ครั้ง 1 (ข้อ 3, 4) -->
+        <td><input type="number" class="inp-ass rtw-c1-3" min="0" max="10" value="${r.c1_3||''}" oninput="calcRTWRow(this)"></td>
+        <td><input type="number" class="inp-ass rtw-c1-4" min="0" max="10" value="${r.c1_4||''}" oninput="calcRTWRow(this)"></td>
+        <td class="bg-sum rtw-c1-sum">-</td>
+        <!-- การคิด ครั้ง 2 (ข้อ 3, 4) -->
+        <td><input type="number" class="inp-ass rtw-c2-3" min="0" max="10" value="${r.c2_3||''}" oninput="calcRTWRow(this)"></td>
+        <td><input type="number" class="inp-ass rtw-c2-4" min="0" max="10" value="${r.c2_4||''}" oninput="calcRTWRow(this)"></td>
+        <td class="bg-sum rtw-c2-sum">-</td>
+        <!-- การเขียน (ข้อ 5) -->
+        <td><input type="number" class="inp-ass rtw-w1-5" min="0" max="15" value="${r.w1_5||''}" oninput="calcRTWRow(this)"></td>
+        <td><input type="number" class="inp-ass rtw-w2-5" min="0" max="15" value="${r.w2_5||''}" oninput="calcRTWRow(this)"></td>
+        <!-- สรุปผล -->
+        <td class="bg-sum rtw-grand-total" style="font-weight:bold; background:#e0f2fe!important;">-</td>
         <td><span class="res-badge rtw-grade">-</span></td>
       </tr>`;
   }).join('');
 
   container.innerHTML = `
     <div class="ass-wrap">
-      <table class="ass-tbl" id="rtwTable">
+      <table class="ass-tbl" id="rtwTable" style="font-size:12px;">
         <thead>
-          <tr>
-            <th rowspan="2" class="ass-no">ที่</th>
-            <th rowspan="2" class="ass-name">ชื่อ-นามสกุล</th>
-            <th colspan="2" style="background:#dbeafe;">การอ่าน (30)</th>
-            <th colspan="2" style="background:#ffedd5;">การคิดวิเคราะห์ (40)</th>
-            <th colspan="2" style="background:#dcfce7;">การเขียน (30)</th>
-            <th rowspan="2" class="bg-sum">รวม</th>
-            <th rowspan="2" class="bg-sum">ระดับผล</th>
+          <tr style="background:#f8fafc;">
+            <th rowspan="3">ที่</th><th rowspan="3" style="min-width:160px;">ชื่อ-นามสกุล</th>
+            <th colspan="6" style="background:#dbeafe;">1. การอ่าน (30)</th>
+            <th colspan="6" style="background:#ffedd5;">2. การคิดวิเคราะห์ (40)</th>
+            <th colspan="2" style="background:#dcfce7;">3. การเขียน (30)</th>
+            <th rowspan="3">รวม</th><th rowspan="3">ระดับ</th>
           </tr>
           <tr>
-            <th style="background:#eff6ff; font-size:10px;">ครั้งที่ 1 (15)</th>
-            <th style="background:#eff6ff; font-size:10px;">ครั้งที่ 2 (15)</th>
-            <th style="background:#fff7ed; font-size:10px;">ครั้งที่ 1 (20)</th>
-            <th style="background:#fff7ed; font-size:10px;">ครั้งที่ 2 (20)</th>
-            <th style="background:#f0fdf4; font-size:10px;">ครั้งที่ 1 (15)</th>
-            <th style="background:#f0fdf4; font-size:10px;">ครั้งที่ 2 (15)</th>
+            <th colspan="3">ครั้งที่ 1 (15)</th><th colspan="3">ครั้งที่ 2 (15)</th>
+            <th colspan="3">ครั้งที่ 1 (20)</th><th colspan="3">ครั้งที่ 2 (20)</th>
+            <th>ค1(15)</th><th>ค2(15)</th>
+          </tr>
+          <tr style="font-size:10px;">
+            <th>ข้อ 1</th><th>ข้อ 2</th><th class="bg-sum">รวม</th>
+            <th>ข้อ 1</th><th>ข้อ 2</th><th class="bg-sum">รวม</th>
+            <th>ข้อ 3</th><th>ข้อ 4</th><th class="bg-sum">รวม</th>
+            <th>ข้อ 3</th><th>ข้อ 4</th><th class="bg-sum">รวม</th>
+            <th>ข้อ 5</th><th>ข้อ 5</th>
           </tr>
         </thead>
         <tbody id="rtwBody">${htmlRows}</tbody>
       </table>
     </div>`;
-
-  // คำนวณค่าเริ่มต้น
-  $$('#rtwBody tr[data-rtwsid]').forEach(tr => calcRTWRow(tr.querySelector('.rtw-r1')));
+  $$('#rtwBody tr[data-rtwsid]').forEach(tr => calcRTWRow(tr.querySelector('.rtw-r1-1')));
 }
 
 // 2. ฟังก์ชันคำนวณคะแนนและตัดเกรด
@@ -2934,54 +2940,48 @@ function renderRTWTable() {
 function calcRTWRow(input) {
   if (!input) return;
   const tr = input.closest('tr');
-  
-  // 1. ตรวจสอบค่าที่กรอก (ไม่ให้เกิน Max)
-  let val = input.value;
   const max = parseFloat(input.getAttribute('max'));
+  if (parseFloat(input.value) > max) { input.value = max; Utils.toast(`คะแนนเต็ม ${max}`, 'warning'); }
   
-  if (parseFloat(val) > max) {
-    input.value = max;
-    val = max;
-    Utils.toast(`คะแนนเต็มคือ ${max}`, 'warning');
-  }
-  if (parseFloat(val) < 0) {
-    input.value = 0;
-    val = 0;
-  }
+  const getV = (sel) => parseFloat(tr.querySelector(sel).value) || 0;
+  
+  // รวมการอ่าน
+  const r1 = getV('.rtw-r1-1') + getV('.rtw-r1-2');
+  const r2 = getV('.rtw-r2-1') + getV('.rtw-r2-2');
+  tr.querySelector('.rtw-r1-sum').textContent = r1;
+  tr.querySelector('.rtw-r2-sum').textContent = r2;
 
-  // 2. คำนวณผลรวมรายแถว
-  const r1 = parseFloat(tr.querySelector('.rtw-r1').value) || 0;
-  const r2 = parseFloat(tr.querySelector('.rtw-r2').value) || 0;
-  const c1 = parseFloat(tr.querySelector('.rtw-c1').value) || 0;
-  const c2 = parseFloat(tr.querySelector('.rtw-c2').value) || 0;
-  const w1 = parseFloat(tr.querySelector('.rtw-w1').value) || 0;
-  const w2 = parseFloat(tr.querySelector('.rtw-w2').value) || 0;
+  // รวมการคิด
+  const c1 = getV('.rtw-c1-3') + getV('.rtw-c1-4');
+  const c2 = getV('.rtw-c2-3') + getV('.rtw-c2-4');
+  tr.querySelector('.rtw-c1-sum').textContent = c1;
+  tr.querySelector('.rtw-c2-sum').textContent = c2;
 
-  const total = r1 + r2 + c1 + c2 + w1 + w2;
-  tr.querySelector('.rtw-total').textContent = total;
+  // การเขียน
+  const w1 = getV('.rtw-w1-5'), w2 = getV('.rtw-w2-5');
 
-  // 3. ตัดเกรด/ระดับคุณภาพ
+  // รวมทั้งหมด
+  const grandTotal = r1 + r2 + c1 + c2 + w1 + w2;
+  tr.querySelector('.rtw-grand-total').textContent = grandTotal;
+
+  // ตัดเกรด
   const gBadge = tr.querySelector('.rtw-grade');
-  let level = ""; let cls = "";
-  if (total >= 86) { level = "ดีเยี่ยม (3)"; cls = "res-3"; }
-  else if (total >= 70) { level = "ดี (2)"; cls = "res-2"; }
-  else if (total >= 50) { level = "ผ่าน (1)"; cls = "res-1"; }
-  else { level = "ไม่ผ่าน (0)"; cls = "res-0"; }
-  gBadge.textContent = level;
-  gBadge.className = `res-badge rtw-grade ${cls}`;
+  let level = "ไม่ผ่าน (0)", cls = "res-0";
+  if (grandTotal >= 86) { level = "ดีเยี่ยม (3)"; cls = "res-3"; }
+  else if (grandTotal >= 70) { level = "ดี (2)"; cls = "res-2"; }
+  else if (grandTotal >= 50) { level = "ผ่าน (1)"; cls = "res-1"; }
+  gBadge.textContent = level; gBadge.className = `res-badge rtw-grade ${cls}`;
 
-  // 4. ระบบเลื่อนเคอร์เซอร์อัตโนมัติ (Vertical Auto-tab - เลื่อนลง)
-  // ถ้าพิมพ์ครบ 2 หลัก ให้เลื่อนลงไปหานักเรียนคนถัดไปในช่องเดิม
-  if (document.activeElement === input && input.value.length >= 2) {
-    const nextTr = tr.nextElementSibling; // หาแถวถัดไป (คนถัดไป)
+  // เลื่อนลงอัตโนมัติ (Vertical Auto-tab)
+  if (document.activeElement === input && input.value.length >= 1) {
+    // กรณีคะแนนเต็มเป็นเลข 2 หลัก (เช่น 10, 15) ต้องเช็คให้พิมพ์ครบก่อน
+    if (max >= 10 && input.value.length < 2 && input.value < (max/10)) return; 
+    
+    const nextTr = tr.nextElementSibling;
     if (nextTr) {
-      // ค้นหาคลาสของช่องที่กำลังพิมพ์อยู่ (เช่น rtw-r1, rtw-c1)
       const currentClass = Array.from(input.classList).find(c => c.startsWith('rtw-'));
       const nextInp = nextTr.querySelector('.' + currentClass);
-      if (nextInp) {
-        nextInp.focus();
-        nextInp.select();
-      }
+      if (nextInp) { nextInp.focus(); nextInp.select(); }
     }
   }
 }
@@ -3019,35 +3019,50 @@ async function saveRTWData() {
 
 // 4. ฟังก์ชันพิมพ์รายงาน (PDF)
 // ฟังก์ชันพิมพ์รายงาน RTW แบบละเอียด (แยกครั้ง + รวมรายด้าน)
+// ฟังก์ชันพิมพ์รายงาน RTW ครบชุด 3 หน้า (ปก + ตารางแยกครั้ง + เกณฑ์)
 function printRTWReport() {
   const cls = $('gClass').value;
   const subj = $('gSubj').value;
-  const year = $('gYear').value;
   const teacherName = $('ci_teacher_name').value || '................................................';
   const directorName = "นางสาวสู่ขวัญ ตลับนาค";
   const academicHead = $('sp_academic_head_name').value || '................................................';
 
+  // 1. ดึงข้อมูลและคำนวณคะแนนจากหน้าจอ (รองรับข้อย่อย)
   const rows = [...$$('#rtwBody tr[data-rtwsid]')].map((tr, i) => {
-    const getVal = (c) => parseFloat(tr.querySelector(c).value) || 0;
-    const r = getVal('.rtw-r1') + getVal('.rtw-r2');
-    const c = getVal('.rtw-c1') + getVal('.rtw-c2');
-    const w = getVal('.rtw-w1') + getVal('.rtw-w2');
+    const getV = (s) => parseFloat(tr.querySelector(s).value) || 0;
+    
+    // คำนวณรายครั้ง
+    const r1 = getV('.rtw-r1-1') + getV('.rtw-r1-2');
+    const r2 = getV('.rtw-r2-1') + getV('.rtw-r2-2');
+    const c1 = getV('.rtw-c1-3') + getV('.rtw-c1-4');
+    const c2 = getV('.rtw-c2-3') + getV('.rtw-c2-4');
+    const w1 = getV('.rtw-w1-5');
+    const w2 = getV('.rtw-w2-5');
+
+    // รวมรายด้าน
+    const r_total = r1 + r2; // เต็ม 30
+    const c_total = c1 + c2; // เต็ม 40
+    const w_total = w1 + w2; // เต็ม 30
+
     return {
-      no: i + 1, name: tr.querySelector('.ass-name').textContent,
-      r, c, w, total: parseFloat(tr.querySelector('.rtw-total').textContent) || 0,
+      no: i + 1, 
+      name: tr.querySelector('.ass-name').textContent,
+      r1, r2, r_total,
+      c1, c2, c_total,
+      w1, w2, w_total,
+      grand_total: tr.querySelector('.rtw-grand-total').textContent,
       grade: tr.querySelector('.rtw-grade').textContent
     };
   });
 
   if (!rows.length) return Utils.toast('ไม่พบข้อมูลนักเรียน', 'error');
 
-  // ฟังก์ชันช่วยตัดเกรดรายด้านเพื่อใส่ในตารางหน้าปก
+  // 2. คำนวณสถิติเพื่อลงในตารางหน้าปก (แยกตามรายด้าน อ่าน/คิด/เขียน)
   const getLvl = (score, max) => {
     const p = (score / max) * 100;
     if (p >= 86) return 'ex'; if (p >= 70) return 'g'; if (p >= 50) return 'p'; return 'i';
   };
 
-  // คำนวณสถิติแยกรายด้าน (อ่าน, คิด, เขียน)
   const stats = {
     r: { ex: 0, g: 0, p: 0, i: 0 },
     c: { ex: 0, g: 0, p: 0, i: 0 },
@@ -3055,18 +3070,29 @@ function printRTWReport() {
   };
 
   rows.forEach(row => {
-    stats.r[getLvl(row.r, 30)]++;
-    stats.c[getLvl(row.c, 40)]++;
-    stats.w[getLvl(row.w, 30)]++;
+    stats.r[getLvl(row.r_total, 30)]++;
+    stats.c[getLvl(row.c_total, 40)]++;
+    stats.w[getLvl(row.w_total, 30)]++;
   });
 
+  // 3. กำหนดตัวชี้วัดตามระดับชั้น สำหรับหน้าปกและหน้าเกณฑ์
+  let indicators = [];
+  if (cls.match(/[ป].[1-3]/)) {
+    indicators = ["1. อ่านและหาประสบการณ์จากสื่อที่หลากหลาย", "2. จับประเด็นสำคัญ ข้อเท็จจริง ความคิดเห็น", "3. เปรียบเทียบแง่มุมต่างๆ เช่น ข้อดี-เสีย ประโยชน์-โทษ", "4. แสดงความคิดเห็นต่อเรื่องที่อ่านอย่างมีเหตุผล", "5. ถ่ายทอดความรู้สึกจากเรื่องที่อ่านโดยการเขียน"];
+  } else if (cls.match(/[ป].[4-6]/)) {
+    indicators = ["1. อ่านเพื่อหาข้อมูลสารสนเทศเสริมประสบการณ์", "2. จับประเด็นสำคัญ เชื่อมโยงความเป็นเหตุเป็นผล", "3. เชื่อมโยงความสัมพันธ์ของเรื่องราวและเหตุการณ์", "4. แสดงความคิดเห็นต่อเรื่องที่อ่านโดยมีเหตุผลสนับสนุน", "5. ถ่ายทอดความเข้าใจ ความคิดเห็น คุณค่าโดยการเขียน"];
+  } else {
+    indicators = ["1. คัดสรรสื่อเพื่อหาข้อมูลสารสนเทศตามวัตถุประสงค์", "2. จับประเด็นสำคัญ ประเด็นสนับสนุน และโต้แย้ง", "3. วิเคราะห์ วิจารณ์ความสมเหตุสมผลน่าเชื่อถือ", "4. สรุปคุณค่า แนวคิด แง่คิดที่ได้จากการอ่าน", "5. สรุป อภิปราย ขยายความ แสดงความเห็นโต้แย้งโดยการเขียน"];
+  }
+
+  // 4. สร้างเอกสาร HTML 3 หน้า
   const win = window.open('', '_blank');
   const html = `
     <!DOCTYPE html>
     <html lang="th">
     <head>
       <meta charset="utf-8">
-      <title>สรุปผลการประเมินการอ่านคิดวิเคราะห์และเขียน</title>
+      <title>รายงานประเมินการอ่านคิดวิเคราะห์และเขียน</title>
       <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap" rel="stylesheet">
       <style>
         @page { size: A4 portrait; margin: 15mm 15mm; }
@@ -3085,7 +3111,7 @@ function printRTWReport() {
         th { background: #fff; font-weight: bold; }
 
         .sign-section { margin-top: 25px; font-size: 14px; }
-        .sign-row { margin-bottom: 12px; display: flex; align-items: flex-start; justify-content: flex-start; padding-left: 80px; }
+        .sign-row { margin-bottom: 12px; display: flex; align-items: flex-start; justify-content: flex-start; padding-left: 60px; }
         .sign-label { min-width: 400px; }
         
         .approval-box { border: 0px solid #000; margin: 30px auto 0; width: 80%; padding: 10px; text-align: center; }
@@ -3093,12 +3119,13 @@ function printRTWReport() {
 
         /* ตารางคะแนนหน้า 2 */
         .score-table th { font-size: 11px; background: #f2f2f2; }
-        .score-table td { font-size: 13px; }
+        .score-table td { font-size: 12px; }
+        .score-table .col-name { text-align: left; padding-left: 5px; width: 160px; }
       </style>
     </head>
     <body>
 
-      <!-- หน้า 1: ปกตามรูปแบบโรงเรียน -->
+      <!-- ================= หน้า 1: ปก ================= -->
       <div class="page">
         <div class="text-center">
           <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg/1200px-The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg.png" class="logo"><br>
@@ -3122,16 +3149,10 @@ function printRTWReport() {
                 <th rowspan="2" style="width:18%;">หมายเหตุ</th>
               </tr>
               <tr>
-                <th colspan="4">จำนวนนักเรียนที่ได้รับระดับผลการประเมิน</th>
-              </tr>
-              <tr>
-                <th style="border-top:none;"></th>
-                <th></th>
                 <th style="width:11%;">ดีเยี่ยม</th>
                 <th style="width:11%;">ดี</th>
                 <th style="width:11%;">ผ่าน</th>
                 <th style="width:12%;">ควรปรับปรุง</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -3163,7 +3184,7 @@ function printRTWReport() {
             <div class="sign-row">
               <div class="sign-label">
                 (ลงชื่อ)......................................................................ประธานกรรมการการประเมินการอ่าน คิดวิเคราะห์ และเขียน
-                <div style="margin-top:10px; padding-left:45px;">( <span style="display:inline-block; min-width:200px;">${academicHead}</span> )</div>
+                <div style="margin-top:10px; padding-left:45px;">( <span style="display:inline-block; min-width:200px; text-align:center;">${academicHead}</span> )</div>
               </div>
             </div>
 
@@ -3190,32 +3211,77 @@ function printRTWReport() {
         </div>
       </div>
 
-      <!-- หน้า 2: ตารางคะแนน -->
+      <!-- ================= หน้า 2: ตารางคะแนนแยกครั้ง ================= -->
       <div class="page">
         <div class="text-center">
-          <div class="fw-bold" style="font-size:17px;">สรุปคะแนนรายบุคคล</div>
-          <p style="font-size:14px;">วิชา ${subj} | ชั้น ${cls}</p>
+          <div class="fw-bold" style="font-size:17px;">สรุปคะแนนการประเมินการอ่าน คิดวิเคราะห์ และเขียน (แยกตามครั้ง)</div>
+          <p style="font-size:14px; margin-top:5px;">วิชา ${subj} | ชั้น ${cls}</p>
         </div>
         <table class="score-table">
           <thead>
             <tr>
-              <th style="width:35px;">ที่</th>
-              <th style="text-align:left; width:180px;">ชื่อ-นามสกุล</th>
-              <th>อ่าน(30)</th><th>คิด(40)</th><th>เขียน(30)</th><th>รวม(100)</th><th>ระดับผล</th>
+              <th rowspan="2" style="width:25px;">ที่</th>
+              <th rowspan="2" class="col-name">ชื่อ-นามสกุล</th>
+              <th colspan="3" style="background:#eff6ff;">การอ่าน (30)</th>
+              <th colspan="3" style="background:#fff7ed;">การคิดวิเคราะห์ (40)</th>
+              <th colspan="3" style="background:#f0fdf4;">การเขียน (30)</th>
+              <th rowspan="2" style="width:35px;">รวม<br>(100)</th>
+              <th rowspan="2" style="width:55px;">ระดับผล</th>
+            </tr>
+            <tr>
+              <th style="background:#eff6ff; width:28px;">ค.1</th><th style="background:#eff6ff; width:28px;">ค.2</th><th style="background:#eff6ff; width:28px;">รวม</th>
+              <th style="background:#fff7ed; width:28px;">ค.1</th><th style="background:#fff7ed; width:28px;">ค.2</th><th style="background:#fff7ed; width:28px;">รวม</th>
+              <th style="background:#f0fdf4; width:28px;">ค.1</th><th style="background:#f0fdf4; width:28px;">ค.2</th><th style="background:#f0fdf4; width:28px;">รวม</th>
             </tr>
           </thead>
           <tbody>
             ${rows.map(r => `
               <tr>
                 <td>${r.no}</td>
-                <td style="text-align:left;">${r.name}</td>
-                <td>${r.r}</td><td>${r.c}</td><td>${r.w}</td>
-                <td class="fw-bold">${r.total}</td>
-                <td>${r.grade}</td>
+                <td class="col-name">${r.name}</td>
+                <td style="background:#eff6ff;">${r.r1}</td><td style="background:#eff6ff;">${r.r2}</td><td class="fw-bold" style="background:#eff6ff;">${r.r_total}</td>
+                <td style="background:#fff7ed;">${r.c1}</td><td style="background:#fff7ed;">${r.c2}</td><td class="fw-bold" style="background:#fff7ed;">${r.c_total}</td>
+                <td style="background:#f0fdf4;">${r.w1}</td><td style="background:#f0fdf4;">${r.w2}</td><td class="fw-bold" style="background:#f0fdf4;">${r.w_total}</td>
+                <td class="fw-bold">${r.grand_total}</td>
+                <td class="fw-bold">${r.grade}</td>
               </tr>
             `).join('')}
           </tbody>
         </table>
+      </div>
+
+      <!-- ================= หน้า 3: เกณฑ์และตัวชี้วัด ================= -->
+      <div class="page">
+        <div class="text-center">
+          <div class="fw-bold" style="font-size:18px;">เกณฑ์การประเมินและตัวชี้วัด</div>
+          <p>ความสามารถในการอ่าน คิดวิเคราะห์ และเขียน (ชั้น ${cls})</p>
+        </div>
+        <div style="margin-left: 20px; margin-right: 20px;">
+          <div class="fw-bold" style="text-decoration: underline;">ตัวชี้วัดที่ประเมิน:</div>
+          <div style="margin: 10px 0 20px 10px; line-height: 1.8;">
+            ${indicators.map((txt) => `<div>${txt}</div>`).join('')}
+          </div>
+          
+          <div class="fw-bold" style="text-decoration: underline; margin-top: 20px;">สัดส่วนคะแนน (100 คะแนน):</div>
+          <div style="margin: 10px 0 20px 10px; line-height: 1.8;">
+            <div><b>1. การอ่าน (30 คะแนน)</b> ประเมินจากตัวชี้วัดข้อที่ 1 และ 2<br><span style="color:#555; font-size:13px; margin-left:15px;">- ครั้งที่ 1 (15 คะแนน) / ครั้งที่ 2 (15 คะแนน)</span></div>
+            <div><b>2. การคิดวิเคราะห์ (40 คะแนน)</b> ประเมินจากตัวชี้วัดข้อที่ 3 และ 4<br><span style="color:#555; font-size:13px; margin-left:15px;">- ครั้งที่ 1 (20 คะแนน) / ครั้งที่ 2 (20 คะแนน)</span></div>
+            <div><b>3. การเขียน (30 คะแนน)</b> ประเมินจากตัวชี้วัดข้อที่ 5<br><span style="color:#555; font-size:13px; margin-left:15px;">- ครั้งที่ 1 (15 คะแนน) / ครั้งที่ 2 (15 คะแนน)</span></div>
+          </div>
+
+          <div class="fw-bold" style="text-decoration: underline; margin-top: 30px;">เกณฑ์การตัดสินคุณภาพ:</div>
+          <table style="width: 80%; margin: 10px auto;">
+            <tr style="background:#eee;"><th>ช่วงคะแนนร้อยละ</th><th>ระดับคุณภาพ</th><th>ความหมาย</th></tr>
+            <tr><td>86 - 100</td><td>ดีเยี่ยม (3)</td><td class="text-left" style="padding-left:10px;">มีผลงานแสดงถึงความสามารถที่มีคุณภาพดีเลิศอยู่เสมอ</td></tr>
+            <tr><td>70 - 85</td><td>ดี (2)</td><td class="text-left" style="padding-left:10px;">มีผลงานแสดงถึงความสามารถที่มีคุณภาพเป็นที่ยอมรับ</td></tr>
+            <tr><td>50 - 69</td><td>ผ่าน (1)</td><td class="text-left" style="padding-left:10px;">มีผลงานแสดงถึงความสามารถที่มีข้อบกพร่องบางประการ</td></tr>
+            <tr><td>0 - 49</td><td>ไม่ผ่าน (0)</td><td class="text-left" style="padding-left:10px;">ไม่มีผลงาน หรือผลงานต้องได้รับการปรับปรุงหลายประการ</td></tr>
+          </table>
+          
+          <div style="margin-top: 30px; font-size: 13px; font-style: italic; color: #555; text-align:center;">
+            * การประเมินอ้างอิงตามหลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช 2551 และแนวทางการประเมินของสถานศึกษา
+          </div>
+        </div>
       </div>
 
     </body>
