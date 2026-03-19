@@ -3853,64 +3853,71 @@ function printGuidanceReport() {
           3. ระบุสาเหตุ ป/ล/ข ด้วยปากกาแดง นักเรียนที่ไม่เข้าร่วมกิจกรรมในแต่ละวัน
         </div>
 
-        <table class="att-table">
-          <table class="att-table" style="width: 100%; border-collapse: collapse; font-size: 11px;">
-  <thead>
-  <tr>
-    <th rowspan="4" style="width:30px;">ที่</th>
-    <th rowspan="4" style="text-align:center; min-width:140px;">ชื่อ – สกุล</th>
-    <th colspan="20">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>
-    <th rowspan="4" style="width:30px;">รวม</th>
-    <th rowspan="4" style="width:30px;">ผล<br>ผ่าน</th>
-    <th rowspan="4" style="width:30px;">ผล<br>ไม่<br>ผ่าน</th>
-  </tr>
-  <tr>
-    <!-- แถวเลขครั้งที่ 1-20 -->
-    ${Array(20).fill(0).map((_, i) => `<th style="width:20px;">${i+1}</th>`).join('')}
-  </tr>
-  <tr style="height: 120px;">
-    <!-- แถววันที่จริง (ดึงจาก App.guidanceDates) -->
-    ${Array(20).fill(0).map((_, i) => {
-      const dStr = App.guidanceDates[i]; // ดึงวันที่จากวันที่เรียนจริงที่คำนวณไว้
-      if (!dStr) return '<th style="width:20px;"></th>'; // ถ้าไม่มีวันที่ในครั้งนั้นๆ ให้ปล่อยว่าง
-      
-      const p = dStr.split('/');
-      const day = parseInt(p[0]);
-      const mNames = ["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-      const month = mNames[parseInt(p[1])];
-      const year = parseInt(p[2]) % 100;
-      
-      return `
-        <th style="writing-mode: vertical-rl; transform: rotate(180deg); color: red; vertical-align: top; padding-top: 5px; font-weight: normal; font-size: 10px;">
-          ${day} ${month} ${year}
-        </th>`;
-    }).join('')}
-  </tr>
-</thead>
-  <tbody>
-    ${rows.map(r => `
-      <tr>
-        <td>${r.no}</td>
-        <td style="text-align:left; padding-left:5px;">${r.name}</td>
-        ${Array(20).fill('<td class="att-col"></td>').join('')}
-        <td class="fw-bold">${r.attended}</td>
-        <td class="fw-bold">${r.result === 'ผ่าน' ? '✓' : ''}</td>
-        <td class="fw-bold">${r.result !== 'ผ่าน' ? '✓' : ''}</td>
-      </tr>
-    `).join('')}
-  </tbody>
-</table>
+        <table class="att-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+          <thead>
+            <tr>
+              <th rowspan="3" style="width:25px;">ที่</th>
+              <th rowspan="3" style="text-align:center; min-width:140px;">ชื่อ – สกุล</th>
+              <th colspan="${displayCols}">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>
+              <th rowspan="3" style="width:30px;">รวม</th>
+              <th rowspan="3" style="width:30px;">ผล<br>ผ่าน</th>
+              <th rowspan="3" style="width:30px;">ผล<br>ไม่<br>ผ่าน</th>
+            </tr>
+            <tr>
+              <!-- แถวเลขครั้งที่ 1 ถึง displayCols -->
+              ${Array(displayCols).fill(0).map((_, i) => `<th style="width:20px; font-size:10px;">${i+1}</th>`).join('')}
+            </tr>
+            <tr style="height: 110px;">
+              <!-- แถววันที่จริง (ดึงจาก App.guidanceDates) -->
+              ${Array(displayCols).fill(0).map((_, i) => {
+                const dStr = App.guidanceDates[i]; 
+                if (!dStr) return '<th style="width:20px;"></th>'; 
+                
+                const p = dStr.split('/');
+                const day = parseInt(p[0]);
+                const mNames =["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+                const month = mNames[parseInt(p[1])];
+                const year = parseInt(p[2]) % 100;
+                
+                return `
+                  <th style="width:20px; vertical-align: bottom; padding-bottom: 5px;">
+                    <div style="writing-mode: vertical-rl; transform: rotate(180deg); color: red; font-weight: normal; font-size: 11px; margin: 0 auto;">
+                      ${day} ${month} ${year}
+                    </div>
+                  </th>`;
+              }).join('')}
+            </tr>
+          </thead>
           <tbody>
-            ${rows.map(r => `
-              <tr>
-                <td>${r.no}</td>
-                <td style="text-align:left; padding-left:5px;">${r.name}</td>
-                ${Array(displayCols).fill('<td class="att-col"></td>').join('')}
-                <td class="fw-bold">${r.attended}</td>
-                <td class="fw-bold">${r.result === 'ผ่าน' ? '✓' : ''}</td>
-                <td class="fw-bold">${r.result !== 'ผ่าน' ? '✓' : ''}</td>
-              </tr>
-            `).join('')}
+            ${rows.map(r => {
+              let attMarks = '';
+              let attended = parseInt(r.attended) || 0;
+              
+              // วนลูปสร้างช่องตารางเช็คชื่อ
+              for(let i = 0; i < displayCols; i++) {
+                if(i < App.guidanceDates.length) {
+                   // พิมพ์เครื่องหมาย / เท่ากับจำนวนวันที่นักเรียนมาเรียน
+                   if(i < attended) {
+                     attMarks += `<td style="text-align:center; color:#166534; font-weight:bold;">/</td>`;
+                   } else {
+                     attMarks += `<td></td>`; // ช่องว่างสำหรับวันที่ขาดเรียน
+                   }
+                } else {
+                   attMarks += `<td></td>`; // ช่องว่างสำหรับคอลัมน์ที่เกินวันที่กำหนด
+                }
+              }
+
+              return `
+                <tr>
+                  <td style="text-align:center;">${r.no}</td>
+                  <td style="text-align:left; padding-left:5px; white-space:nowrap;">${r.name}</td>
+                  ${attMarks}
+                  <td class="fw-bold" style="text-align:center;">${r.attended}</td>
+                  <td class="fw-bold" style="text-align:center;">${r.result === 'ผ่าน' ? '✓' : ''}</td>
+                  <td class="fw-bold" style="text-align:center;">${r.result !== 'ผ่าน' ? '✓' : ''}</td>
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
       </div>
