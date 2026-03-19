@@ -2209,6 +2209,7 @@ async function loadGrades() {
     buildTable();
     renderHolisticTable(App.students, 'assContainer', 'assBody', 'subject');
     renderHolisticTable(App.students, 'hrAssContainer', 'hrAssBody', 'homeroom');
+    renderRTWTable();
 
     showScoreMain($('tabScoreMain'));
     Utils.toast(`โหลดข้อมูลสำเร็จ: โหมด${App.isSemMode ? 'มัธยม (รายภาคเรียน)' : 'ประถม (รายปี)'}`);
