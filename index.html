@@ -4066,25 +4066,49 @@ function printGuidanceReport() {
         </div>
 
         <table class="att-table">
-          <thead>
-            <tr>
-              <th rowspan="3" style="width:25px; font-weight:normal;">ที่</th>
-              <th rowspan="3" style="text-align:center; min-width:130px; font-weight:normal;">ชื่อ – สกุล</th>
-              <th colspan="${displayCols}" style="font-weight:normal;">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>
-              <th rowspan="3" class="vert-header">${thaiVert('รวม')}</th>
-              <th rowspan="3" class="vert-header">${thaiVert('ผลการเรียนผ่าน')}</th>
-              <th rowspan="3" class="vert-header">${thaiVert('ผลการเรียนไม่ผ่าน')}</th>
-            </tr>
-            <tr>
-              ${Array(displayCols).fill(0).map((_, i) => `<th class="att-col" style="font-weight:normal; border-bottom:none;">${i+1}</th>`).join('')}
-            </tr>
-            <tr>
-              ${Array(displayCols).fill(0).map((_, i) => {
-                const dateVert = App.guidanceDates[i] ? thaiVert(getVeryShortDate(App.guidanceDates[i])) : '';
-                return `<th class="att-col red-date" style="border-top:none;">${dateVert}</th>`;
-              }).join('')}
-            </tr>
-          </thead>
+          <table class="att-table" style="width: 100%; border-collapse: collapse; font-size: 11px;">
+  <thead>
+    <tr>
+      <th rowspan="4" style="width:25px;">ที่</th>
+      <th rowspan="4" style="text-align:center; min-width:130px;">ชื่อ – สกุล</th>
+      <th colspan="20">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>
+      <th rowspan="4" style="width:30px;">รวม</th>
+      <th rowspan="4" style="width:30px;">ผล<br>ผ่าน</th>
+      <th rowspan="4" style="width:30px;">ผล<br>ไม่ผ่าน</th>
+    </tr>
+    <tr>
+      <!-- แถวเลขครั้งที่ 1-20 -->
+      ${Array(20).fill(0).map((_, i) => `<th class="att-col">${i+1}</th>`).join('')}
+    </tr>
+    <tr style="height: 100px;">
+      <!-- แถววันที่จริง (ดึงจาก App.guidanceDates) -->
+      ${Array(20).fill(0).map((_, i) => {
+        const dStr = App.guidanceDates[i] || ''; // ถ้าไม่มีวันที่ในครั้งนั้นๆ ให้ปล่อยว่าง
+        if (!dStr) return '<th class="att-col"></th>';
+        const p = dStr.split('/');
+        const day = parseInt(p[0]);
+        const mNames = ["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+        const month = mNames[parseInt(p[1])];
+        const year = parseInt(p[2]) % 100;
+        return `<th class="att-col" style="writing-mode: vertical-rl; transform: rotate(180deg); color: red; vertical-align: top; padding-top: 5px;">
+                  ${day} ${month} ${year}
+                </th>`;
+      }).join('')}
+    </tr>
+  </thead>
+  <tbody>
+    ${rows.map(r => `
+      <tr>
+        <td>${r.no}</td>
+        <td style="text-align:left; padding-left:5px;">${r.name}</td>
+        ${Array(20).fill('<td class="att-col"></td>').join('')}
+        <td class="fw-bold">${r.attended}</td>
+        <td class="fw-bold">${r.result === 'ผ่าน' ? '✓' : ''}</td>
+        <td class="fw-bold">${r.result !== 'ผ่าน' ? '✓' : ''}</td>
+      </tr>
+    `).join('')}
+  </tbody>
+</table>
           <tbody>
             ${rows.map(r => `
               <tr>
