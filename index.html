@@ -3583,218 +3583,6 @@ async function saveGuidanceData() {
 }
 
 
-// 4. พิมพ์รายงานแนะแนว (4 หน้า ตามต้นฉบับโรงเรียนบ้านคลอง 14)
-function printGuidanceReport() {
-  const cls = $('gClass').value;
-  const year = $('gYear').value;
-  // ดึงเทอมอัตโนมัติจากชื่อชั้น ถ้าไม่มีให้เว้นว่าง
-  const termMatch = cls.match(/เทอม (\d)/);
-  const term = termMatch ? termMatch[1] : '........'; 
-  const clsName = cls.split('เทอม')[0].trim(); // ตัดคำว่าเทอมออกให้เหลือแค่ ม.1, ป.1
-
-  const maxTime = parseInt($('guidance_max_time').value) || 20;
-  let rawTeacherName = $('guidance_teacher').value.trim() || '........................................................';
-  let teachers = rawTeacherName.split(/\s*(?:และ|\/|,)\s*/).filter(t => t);
-  if (teachers.length === 0) teachers = ['........................................................'];
-
-  const rows = [...$$('#guidanceBody tr[data-guidesid]')].map((tr, i) => {
-    return {
-      no: i + 1, 
-      name: tr.querySelector('.ass-name').textContent,
-      attended: tr.querySelector('.guide-time').value,
-      result: tr.querySelector('.guide-result').value,
-      note: tr.querySelector('.guide-note').value
-    };
-  });
-
-  if (!rows.length) return Utils.toast('ไม่พบข้อมูลนักเรียน', 'error');
-
-  let passCount = 0; let failCount = 0;
-  rows.forEach(r => { if(r.result === 'ผ่าน') passCount++; else failCount++; });
-
-  const win = window.open('', '_blank');
-  const html = `
-    <!DOCTYPE html>
-    <html lang="th">
-    <head>
-      <meta charset="utf-8">
-      <title>รายงานกิจกรรมแนะแนว</title>
-      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
-      <style>
-        @page { size: A4 portrait; margin: 15mm; }
-        body { font-family: 'Sarabun', sans-serif; font-size: 15px; color: #000; margin: 0; line-height: 1.4; }
-        .page { page-break-after: always; min-height: 260mm; position: relative; padding: 10px; }
-        
-        .text-center { text-align: center; }
-        .text-left { text-align: left; }
-        .fw-bold { font-weight: bold; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #000; padding: 6px; text-align: center; }
-        th { background: #f9fafb; font-weight: bold; }
-        
-        .indent { text-indent: 40px; }
-        .sign-flex { display: flex; justify-content: center; gap: 40px; margin-top: 30px; text-align: center; }
-        
-        /* สไตล์ตารางเช็คชื่อหน้า 4 (คอลัมน์เล็กๆ) */
-        .att-table th, .att-table td { padding: 3px; font-size: 11px; }
-        .att-col { width: 18px; }
-          /* เพิ่มสไตล์หมุน 90 องศา */
-  .rotate-date { 
-    writing-mode: vertical-lr; 
-    transform: rotate(180deg); 
-    white-space: nowrap; 
-    height: 100px; 
-    text-align: left; 
-    font-size: 10px;
-    padding: 5px 2px;
-  }
-      </style>
-    </head>
-    <body>
-
-      <!-- ================= หน้า 1: ปกวิสัยทัศน์ ================= -->
-      <div class="page">
-        <div class="text-center" style="margin-bottom:30px;">
-          <div class="fw-bold" style="font-size:18px;">หลักสูตรการศึกษาขั้นพื้นฐาน ระดับชั้น ${clsName} ภาคเรียนที่ ${term} ปีการศึกษา ${year}</div>
-          <div class="fw-bold" style="font-size:18px;">โรงเรียนบ้านคลอง ๑๔  อำเภอองครักษ์  จังหวัดนครนายก</div>
-          <div style="margin-top:10px; font-size:16px;">ครูประจำชั้น ${teachers.join(' และ ')}</div>
-        </div>
-
-        <table style="width: 70%; margin: 0 auto 40px;">
-          <tr>
-            <th rowspan="2" style="width:30%;">นักเรียนทั้งหมด</th>
-            <th colspan="2">จำนวนนักเรียน</th>
-            <th rowspan="2" style="width:25%;">หมายเหตุ</th>
-          </tr>
-          <tr>
-            <th style="width:22%;">ผ่าน</th><th style="width:22%;">ไม่ผ่าน</th>
-          </tr>
-          <tr>
-            <td class="fw-bold" style="font-size:18px;"><br>${rows.length} คน<br><br></td>
-            <td class="fw-bold" style="font-size:18px;">${passCount}</td>
-            <td class="fw-bold" style="font-size:18px;">${failCount}</td>
-            <td></td>
-          </tr>
-        </table>
-
-        <div class="text-center fw-bold" style="font-size:18px;">วิสัยทัศน์</div>
-        <div class="indent" style="text-align:justify; margin-bottom:20px;">
-          โรงเรียนบ้านคลอง ๑๔ มุ่งจัดการศึกษาให้เยาวชนเป็นคนดี มีคุณธรรม มีทักษะในการสื่อสาร มีความรู้ความสามารถเต็มเต็มตามศักยภาพของแต่ละบุคคล มีเจตคติที่ดีในการประกอบอาชีพสุจริตและใช้ชีวิตในสังคมได้อย่างมีความสุขตามแนวปรัชญาเศรษฐกิจพอเพียงด้วยกระบวนการบริหารจัดการที่ทันสมัยและการมีส่วนร่วมของบุคคลทั้งในและนอกสถานศึกษา
-        </div>
-
-        <div class="text-center fw-bold" style="font-size:18px;">พันธกิจ</div>
-        <div style="margin-bottom:20px; padding-left:20px;">
-          ๑. ส่งเสริมสนับสนุนให้ชุมชนเข้ามามีส่วนร่วมในการจัดการศึกษา และใช้ภูมิปัญญาท้องถิ่น<br>
-          ๒. จัดการเรียนการสอนโดยยึดนักเรียนเป็นสำคัญ นักเรียนแสวงหาความรู้ด้วยตนเองสร้างองค์ความรู้ได้และมีคุณธรรม จริยธรรมที่ดีงาม<br>
-          ๓. ส่งเสริมสนับสนุนให้ครูและบุคลากรทางการศึกษาได้พัฒนาตนเองและทำการวิจัยในชั้นเรียน<br>
-          ๔. จัดสภาพแวดล้อมของโรงเรียนให้เอื้อต่อการจัดการเรียนการสอน<br>
-          ๕. จัดกิจกรรมโครงการพระราชดำริสมเด็จพระเทพรัตนราชสุดาฯสยามบรมราชกุมารีอย่างต่อเนื่องและเป็นระบบ
-        </div>
-
-        <div class="text-center fw-bold" style="font-size:18px;">เป้าหมาย</div>
-        <div style="padding-left:20px;">
-          ๑. ชุมชนมีส่วนร่วมในการจัดการศึกษา<br>
-          ๒. นำภูมิปัญญาท้องถิ่นมาใช้ในการจัดการเรียนการสอน<br>
-          ๓. ครูจัดการเรียนรู้โดยยึดนักเรียนเป็นสำคัญ<br>
-          ๔. นักเรียนรู้จักแสวงหาความรู้ได้ด้วยตนเองและสร้างองค์ความรู้ได้<br>
-          ๕. นักเรียนมีคุณธรรม จริยธรรมที่ดีงาม<br>
-          ๖. ส่งเสริมสนับสนุนครูและบุคลากรทางการศึกษาพัฒนาตนเองอยู่เสมอและทำการวิจัยในชั้นเรียน<br>
-          ๗. จัดสภาพแวดล้อมในโรงเรียนให้เอื้อต่อการเรียนรู้<br>
-          ๘. จัดกิจกรรมตามโครงการพระราชดำริอย่างต่อเนื่องและเป็นระบบ
-        </div>
-      </div>
-
-      <!-- ================= หน้า 2: รายชื่อนักเรียนและลายเซ็น ================= -->
-      <div class="page">
-        <div class="text-right fw-bold" style="margin-bottom:10px;">จำนวนนักเรียน ${rows.length} คน</div>
-        <table>
-          <thead>
-            <tr><th style="width:50px;">ที่</th><th style="text-align:left; padding-left:15px;">ชื่อ – สกุล</th><th style="width:30%;">หมายเหตุ</th></tr>
-          </thead>
-          <tbody>
-            ${rows.map(r => `<tr><td>${r.no}</td><td style="text-align:left; padding-left:15px;">${r.name}</td><td>${r.note}</td></tr>`).join('')}
-          </tbody>
-        </table>
-
-        <div class="sign-flex" style="margin-top: 50px;">
-          ${teachers.map(t => `
-            <div>
-              ลงชื่อ..........................................................ครูประจำชั้น<br>
-              <div style="margin-top:10px;">( ${t} )</div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-
-      <!-- ================= หน้า 3: บันทึกการจัดกิจกรรม ================= -->
-      <div class="page">
-        <div class="text-center fw-bold" style="font-size:18px; margin-bottom:15px;">บันทึกการจัดกิจกรรม</div>
-        <table>
-          <thead>
-            <tr><th style="width:15%;">ครั้งที่</th><th style="width:30%;">วัน/เดือน/ปี</th><th>ผู้สอน</th></tr>
-          </thead>
-          <tbody>
-            ${Array(maxTime).fill(0).map((_, i) => `<tr><td style="height:28px;">${i+1}</td><td></td><td></td></tr>`).join('')}
-          </tbody>
-        </table>
-
-        <div style="margin-top: 30px;">
-          ${Array(8).fill('<div style="border-bottom:1px dotted #000; height:30px; margin-bottom:5px;"></div>').join('')}
-        </div>
-      </div>
-
-      <!-- ================= หน้า 4: ตารางเช็คชื่อ (20 ช่อง) ================= -->
-      <div class="page">
-        <div class="text-center fw-bold" style="font-size:18px;">การเข้าร่วมกิจกรรมแนะแนว</div>
-        <div class="fw-bold" style="margin-bottom:10px;">ชั้น ${cls}</div>
-        
-        <div style="font-size:13px; line-height:1.6; margin-bottom:15px;">
-          <b>คำชี้แจง</b><br>
-          ให้ผู้รับผิดชอบกิจกรรมเขียน ชื่อ/สกุล/ชั้น ลงวันที่ของแต่ละเดือนที่มีการปฏิบัติกิจกรรม<br>
-          ระบุสาเหตุ ป/ล/ข ด้วยปากกาแดง นักเรียนที่ไม่เข้าร่วมกิจกรรมในแต่ละวัน
-        </div>
-
-       <table class="att-table">
-  <thead>
-    <tr>
-      <th rowspan="2">ที่</th>
-      <th rowspan="2" style="min-width:120px;">ชื่อ – สกุล</th>
-      <th colspan="${App.guidanceDates.length}">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>
-      <th rowspan="2">รวม</th>
-      <th rowspan="2">ผล<br>ผ่าน</th>
-      <th rowspan="2">ผล<br>ไม่ผ่าน</th>
-    </tr>
-    <tr>
-      ${App.guidanceDates.map((d, i) => {
-        const parts = d.split('/');
-        const mNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ล.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-        const mName = mNames[parseInt(parts[1])-1];
-        return `<th class="rotate-date"><div>${parseInt(parts[0])} ${mName}</div></th>`;
-      }).join('')}
-    </tr>
-  </thead>
-  <tbody>
-    ${rows.map(r => `
-      <tr>
-        <td>${r.no}</td>
-        <td style="text-align:left; padding-left:5px;">${r.name}</td>
-        ${App.guidanceDates.map(() => `<td class="att-col"></td>`).join('')}
-        <td class="fw-bold">${r.attended}</td>
-        <td class="fw-bold">${r.result === 'ผ่าน' ? '✓' : ''}</td>
-        <td class="fw-bold">${r.result !== 'ผ่าน' ? '✓' : ''}</td>
-      </tr>
-    `).join('')}
-  </tbody>
-</table>
-      </div>
-
-    </body>
-    </html>
-  `;
-  win.document.open(); win.document.write(html); win.document.close();
-}
-
   
   // ฟังก์ชันพิมพ์รายงานแนะแนว (อัปเดตหน้าปกใหม่ตามภาพต้นฉบับ)
 function printGuidanceReport() {
@@ -4068,34 +3856,37 @@ function printGuidanceReport() {
         <table class="att-table">
           <table class="att-table" style="width: 100%; border-collapse: collapse; font-size: 11px;">
   <thead>
-    <tr>
-      <th rowspan="4" style="width:25px;">ที่</th>
-      <th rowspan="4" style="text-align:center; min-width:130px;">ชื่อ – สกุล</th>
-      <th colspan="20">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>
-      <th rowspan="4" style="width:30px;">รวม</th>
-      <th rowspan="4" style="width:30px;">ผล<br>ผ่าน</th>
-      <th rowspan="4" style="width:30px;">ผล<br>ไม่ผ่าน</th>
-    </tr>
-    <tr>
-      <!-- แถวเลขครั้งที่ 1-20 -->
-      ${Array(20).fill(0).map((_, i) => `<th class="att-col">${i+1}</th>`).join('')}
-    </tr>
-    <tr style="height: 100px;">
-      <!-- แถววันที่จริง (ดึงจาก App.guidanceDates) -->
-      ${Array(20).fill(0).map((_, i) => {
-        const dStr = App.guidanceDates[i] || ''; // ถ้าไม่มีวันที่ในครั้งนั้นๆ ให้ปล่อยว่าง
-        if (!dStr) return '<th class="att-col"></th>';
-        const p = dStr.split('/');
-        const day = parseInt(p[0]);
-        const mNames = ["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-        const month = mNames[parseInt(p[1])];
-        const year = parseInt(p[2]) % 100;
-        return `<th class="att-col" style="writing-mode: vertical-rl; transform: rotate(180deg); color: red; vertical-align: top; padding-top: 5px;">
-                  ${day} ${month} ${year}
-                </th>`;
-      }).join('')}
-    </tr>
-  </thead>
+  <tr>
+    <th rowspan="4" style="width:30px;">ที่</th>
+    <th rowspan="4" style="text-align:center; min-width:140px;">ชื่อ – สกุล</th>
+    <th colspan="20">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>
+    <th rowspan="4" style="width:30px;">รวม</th>
+    <th rowspan="4" style="width:30px;">ผล<br>ผ่าน</th>
+    <th rowspan="4" style="width:30px;">ผล<br>ไม่<br>ผ่าน</th>
+  </tr>
+  <tr>
+    <!-- แถวเลขครั้งที่ 1-20 -->
+    ${Array(20).fill(0).map((_, i) => `<th style="width:20px;">${i+1}</th>`).join('')}
+  </tr>
+  <tr style="height: 120px;">
+    <!-- แถววันที่จริง (ดึงจาก App.guidanceDates) -->
+    ${Array(20).fill(0).map((_, i) => {
+      const dStr = App.guidanceDates[i]; // ดึงวันที่จากวันที่เรียนจริงที่คำนวณไว้
+      if (!dStr) return '<th style="width:20px;"></th>'; // ถ้าไม่มีวันที่ในครั้งนั้นๆ ให้ปล่อยว่าง
+      
+      const p = dStr.split('/');
+      const day = parseInt(p[0]);
+      const mNames = ["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+      const month = mNames[parseInt(p[1])];
+      const year = parseInt(p[2]) % 100;
+      
+      return `
+        <th style="writing-mode: vertical-rl; transform: rotate(180deg); color: red; vertical-align: top; padding-top: 5px; font-weight: normal; font-size: 10px;">
+          ${day} ${month} ${year}
+        </th>`;
+    }).join('')}
+  </tr>
+</thead>
   <tbody>
     ${rows.map(r => `
       <tr>
