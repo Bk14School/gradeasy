@@ -2697,11 +2697,111 @@ async function printPp5SubjectPDF() {
 
 
 function printHolisticReport(mode) {
-  const rows =[...$$(`${mode === 'homeroom' ? '#hrAssBody' : '#assBody'} tr[data-hsid]`)].map((tr, i) => ({ no: i + 1, name: tr.querySelector('.ass-name')?.textContent || '', cS: [...tr.querySelectorAll('.c-inp')].map(i=>i.value), cT: tr.querySelector('.c-total')?.textContent||'-', cR: tr.querySelector('.c-result')?.textContent||'-', rS: [...tr.querySelectorAll('.r-inp')].map(i=>i.value), rT: tr.querySelector('.r-total')?.textContent||'-', rR: tr.querySelector('.r-result')?.textContent||'-', sS: [...tr.querySelectorAll('.s-inp')].map(i=>i.value), sT: tr.querySelector('.s-total')?.textContent||'-', sR: tr.querySelector('.s-result')?.textContent||'-' }));
+  const rows =[...$$(`${mode === 'homeroom' ? '#hrAssBody' : '#assBody'} tr[data-hsid]`)].map((tr, i) => ({
+    no: i + 1,
+    name: tr.querySelector('.ass-name')?.textContent || '',
+    cS:[...tr.querySelectorAll('.c-inp')].map(i => i.value),
+    cT: tr.querySelector('.c-total')?.textContent || '-',
+    cR: tr.querySelector('.c-result')?.textContent || '-',
+    rS: [...tr.querySelectorAll('.r-inp')].map(i => i.value),
+    rT: tr.querySelector('.r-total')?.textContent || '-',
+    rR: tr.querySelector('.r-result')?.textContent || '-',
+    sS: [...tr.querySelectorAll('.s-inp')].map(i => i.value),
+    sT: tr.querySelector('.s-total')?.textContent || '-',
+    sR: tr.querySelector('.s-result')?.textContent || '-'
+  }));
+
   if (!rows.length) return Utils.toast('ไม่พบข้อมูล', 'error');
-  const mkTbl = (tit, hdrs, kS, kT, kR, cls) => `<section class="print-page"><div class="report-head"><div class="report-school">โรงเรียนบ้านคลอง 14</div><div class="report-title">${tit}</div><div class="report-meta">ชั้น ${$('gClass').value} | รายวิชา ${$('gSubj').value}</div></div><table class="print-tbl ${cls}"><thead><tr><th class="col-no">ที่</th><th class="col-name">ชื่อ-นามสกุล</th>${hdrs.map(h=>`<th>${h}</th>`).join('')}<th class="col-total">รวม</th><th class="col-result">ผล</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.no}</td><td style="text-align:left">${escHtml(r.name)}</td>${r[kS].map(v=>`<td>${v||'-'}</td>`).join('')}<td>${r[kT]}</td><td>${r[kR]}</td></tr>`).join('')}</tbody></table></section>`;
-  const win = window.open('', '_blank'); if (!win) return;
-  writeToPrintWindow(win, `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>รายงานประเมิน</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:"Sarabun",sans-serif;margin:0;color:#111827}.print-page{page-break-after:always;padding:4mm 2mm}.report-head{text-align:center;margin-bottom:10px}.print-tbl{width:100%;border-collapse:collapse;font-size:12px}.print-tbl th,.print-tbl td{border:1px solid #9ca3af;padding:6px;text-align:center}.print-tbl .col-no{width:36px}.print-tbl .col-name{width:230px}.theme-char thead th{background:#fef08a}.theme-read thead th{background:#fdba74}.theme-skill thead th{background:#d1d5db}</style></head><body>${mkTbl('ประเมินคุณลักษณะฯ',['1','2','3','4','5','6','7','8'],'cS','cT','cR','theme-char')}${mkTbl('อ่าน คิด วิเคราะห์ เขียน',['1','2','3','4','5'],'rS','rT','rR','theme-read')}${mkTbl('สมรรถนะสำคัญ',['1','2','3','4','5'],'sS','sT','sR','theme-skill')}</body></html>`, 'รายงานประเมิน');
+
+  // ตรวจสอบว่าเป็นรายงานแบบรายวิชา หรือ ประจำชั้น
+  const metaText = mode === 'homeroom' 
+    ? `ชั้น ${$('gClass').value} | สรุปประเมินประจำชั้น` 
+    : `ชั้น ${$('gClass').value} | รายวิชา ${$('gSubj').value}`;
+
+  const mkTbl = (tit, hdrs, kS, kT, kR, cls) => {
+    // นับจำนวนสรุปผลการประเมิน
+    const counts = { 'ดีเยี่ยม': 0, 'ดี': 0, 'ผ่าน': 0, 'ไม่ผ่าน': 0 };
+    rows.forEach(r => {
+      let res = r[kR];
+      if (counts[res] !== undefined) counts[res]++;
+    });
+
+    return `<section class="print-page">
+      <div class="report-head">
+        <div class="report-school">โรงเรียนบ้านคลอง 14</div>
+        <div class="report-title">${tit}</div>
+        <div class="report-meta">${metaText}</div>
+      </div>
+      <table class="print-tbl ${cls}">
+        <thead>
+          <tr>
+            <th class="col-no">ที่</th>
+            <th class="col-name">ชื่อ-นามสกุล</th>
+            ${hdrs.map(h => `<th>${h}</th>`).join('')}
+            <th class="col-total">รวม</th>
+            <th class="col-result">ผล</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `<tr>
+            <td>${r.no}</td>
+            <td style="text-align:left">${escHtml(r.name)}</td>
+            ${r[kS].map(v => `<td>${v || '-'}</td>`).join('')}
+            <td>${r[kT]}</td>
+            <td><b>${r[kR]}</b></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="report-summary">
+        <b>สรุปผลการประเมิน:</b> 
+        <span class="sum-item sum-3">ดีเยี่ยม: ${counts['ดีเยี่ยม']} คน</span> |
+        <span class="sum-item sum-2">ดี: ${counts['ดี']} คน</span> |
+        <span class="sum-item sum-1">ผ่าน: ${counts['ผ่าน']} คน</span> |
+        <span class="sum-item sum-0">ไม่ผ่าน: ${counts['ไม่ผ่าน']} คน</span>
+      </div>
+    </section>`;
+  };
+
+  const win = window.open('', '_blank');
+  if (!win) return Utils.toast('กรุณาอนุญาตให้เปิดหน้าต่างใหม่ (Popup)', 'error');
+
+  const html = `<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>รายงานประเมิน</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  body { font-family: "Sarabun", sans-serif; margin: 0; color: #111827; }
+  .print-page { page-break-after: always; padding: 4mm 2mm; }
+  .report-head { text-align: center; margin-bottom: 12px; }
+  .report-school { font-size: 16px; font-weight: bold; }
+  .report-title { font-size: 18px; font-weight: bold; margin: 4px 0; }
+  .report-meta { font-size: 14px; color: #4b5563; }
+  .print-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .print-tbl th, .print-tbl td { border: 1px solid #9ca3af; padding: 6px; text-align: center; }
+  .print-tbl .col-no { width: 40px; }
+  .print-tbl .col-name { width: 220px; }
+  .theme-char thead th { background: #fef08a; }
+  .theme-read thead th { background: #fdba74; }
+  .theme-skill thead th { background: #d1d5db; }
+  .report-summary { margin-top: 15px; text-align: right; font-size: 15px; padding: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; }
+  .sum-item { margin: 0 8px; font-weight: bold; }
+  .sum-3 { color: #166534; }
+  .sum-2 { color: #075985; }
+  .sum-1 { color: #92400e; }
+  .sum-0 { color: #991b1b; }
+</style>
+</head>
+<body>
+  ${mkTbl('ประเมินคุณลักษณะอันพึงประสงค์',['1','2','3','4','5','6','7','8'], 'cS', 'cT', 'cR', 'theme-char')}
+  ${mkTbl('ประเมินการอ่าน คิด วิเคราะห์ เขียน', ['1','2','3','4','5'], 'rS', 'rT', 'rR', 'theme-read')}
+  ${mkTbl('ประเมินสมรรถนะสำคัญของผู้เรียน', ['1','2','3','4','5'], 'sS', 'sT', 'sR', 'theme-skill')}
+</body>
+</html>`;
+
+  writeToPrintWindow(win, html, 'รายงานประเมิน');
 }
 
 // =====================================================
