@@ -144,6 +144,12 @@ function renderGuidanceTable(isRecalculating) {
     // โหลด attendance แล้ว render ทั้ง 2 term
     loadGuidanceAttendance().then(function() {
       setTimeout(function() {
+        // pre-fill teacher input จากข้อมูลที่บันทึกไว้
+        ['1','2'].forEach(function(t) {
+          var inp = document.getElementById('guidance_teacher_t' + t);
+          var saved = App.guidanceData && App.guidanceData[t] && App.guidanceData[t]._teacher;
+          if (inp && saved) inp.value = saved;
+        });
         _renderGuidanceForTerm('1');
         _renderGuidanceForTerm('2');
       }, 50);
@@ -216,13 +222,14 @@ function _buildGuidanceTable(term, dates) {
   var nDates = dates.length;
   var MONTHS = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 
-  var savedTopics   = App.guidanceData[term] && App.guidanceData[term]._topics   ? App.guidanceData[term]._topics   : [];
-  var savedTeachers = App.guidanceData[term] && App.guidanceData[term]._teachers ? App.guidanceData[term]._teachers : [];
+  var gd = App.guidanceData[term] || {};
+  var savedTopics  = gd._topics  || [];
+  var savedTeacher = gd._teacher || '';
 
   // ส่วน 1: บันทึกกิจกรรม
   var actRows = dates.map(function(d, i) {
     var tv = savedTopics[i]   || '';
-    var hv = savedTeachers[i] || (document.getElementById('guidance_teacher_t' + term) || {}).value || '';
+    var hv = (document.getElementById('guidance_teacher_t' + term) || {}).value || savedTeacher || '';
     return '<tr>' +
       '<td style="text-align:center;border:1px solid #e2e8f0;padding:5px;color:#94a3b8;font-size:.8rem;">' + (i+1) + '</td>' +
       '<td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;font-size:.82rem;color:#6d28d9;white-space:nowrap;">' + shortThaiDate(d) + '</td>' +
