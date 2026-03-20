@@ -452,8 +452,9 @@ function printGuidanceReport() {
   var cls          = $('gClass').value;
   var year         = $('gYear').value;
   var clsName      = cls.split('เทอม')[0].trim();
-  var evalHeadName = 'นางสาวกิตติญา สินทม';
-  var directorName = 'นางปราณี วาดเขียน';
+  var evalHeadName     = 'นางสาวพรพรรณ บุญวัน';
+  var activityHeadName = 'นาจิรพิพัฒน์ พะสุรัมย์';
+  var directorName = 'นางสาวสู่ขวัญ ตลับนาค';
   var schoolName   = 'โรงเรียนบ้านคลอง ๑๔';
   var MONTHS   = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   var MONTHS_S = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -557,16 +558,28 @@ function printGuidanceReport() {
         '<div class="appr">' +
           '<div style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:10px;">การอนุมัติผลการเรียน</div>' +
           '<div class="sf">' + signLines + '</div>' +
-          '<div class="sign-line">ลงชื่อ.........................................หัวหน้ากิจกรรมพัฒนาผู้เรียน<br><span style="margin-left:50px;">(...........................................................)</span></div>' +
-          '<div class="sign-line">ลงชื่อ.........................................หัวหน้างานวัดผลและประเมินผล<br><span style="margin-left:50px;">( ' + evalHeadName + ' )</span></div>' +
-          '<div style="margin-top:14px;text-align:center;">' +
-            '<div style="font-weight:bold;font-size:15px;">เรียน เสนอเพื่อโปรดพิจารณาอนุมัติผลการเรียน</div>' +
-            '<div style="display:flex;justify-content:center;gap:60px;margin:10px 0;font-size:15px;">' +
+          '<hr style="border:none;border-top:1px dashed #ccc;margin:10px 0;">' +
+          '<div class="sign-block">' +
+            '<div>ลงชื่อ.................................................................</div>' +
+            '<div class="sign-name">หัวหน้ากิจกรรมพัฒนาผู้เรียน</div>' +
+            '<div class="sign-name">( ' + activityHeadName + ' )</div>' +
+          '</div>' +
+          '<div class="sign-block">' +
+            '<div>ลงชื่อ.................................................................</div>' +
+            '<div class="sign-name">หัวหน้างานวัดผลและประเมินผล</div>' +
+            '<div class="sign-name">( ' + evalHeadName + ' )</div>' +
+          '</div>' +
+          '<hr style="border:none;border-top:1px dashed #ccc;margin:10px 0;">' +
+          '<div style="text-align:center;margin-top:8px;">' +
+            '<div style="font-weight:bold;font-size:15px;margin-bottom:8px;">เรียน เสนอเพื่อโปรดพิจารณาอนุมัติผลการเรียน</div>' +
+            '<div style="display:flex;justify-content:center;gap:70px;margin:8px 0;font-size:14px;">' +
               '<span><span class="rc"></span> อนุมัติ</span><span><span class="rc"></span> ไม่อนุมัติ</span>' +
             '</div>' +
-            '<div style="font-size:15px;">ลงชื่อ............................................................................</div>' +
-            '<div style="font-size:14px;margin-top:6px;">( ' + directorName + ' )</div>' +
-            '<div style="font-size:13px;">ผู้อำนวยการ' + schoolName + '</div>' +
+          '</div>' +
+          '<div class="sign-block">' +
+            '<div>ลงชื่อ.................................................................</div>' +
+            '<div class="sign-name">ผู้อำนวยการ' + schoolName + '</div>' +
+            '<div class="sign-name">( ' + directorName + ' )</div>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -646,7 +659,8 @@ function printGuidanceReport() {
     '.cover-stat{width:80%;margin:0 auto 8mm;border-collapse:collapse;font-size:14px;}' +
     '.cover-stat th,.cover-stat td{border:1px solid #000;padding:8px;text-align:center;}' +
     '.cover-stat th{background:#f3f4f6;font-weight:bold;}' +
-    '.sign-line{margin-top:8px;font-size:14px;}' +
+    '.sign-block{text-align:center;margin:10px auto;font-size:14px;line-height:1.9;}' +
+    '.sign-name{font-size:13px;color:#222;}' +
     '.att-page{page-break-after:always;page:att;padding:6px 10px;}' +
     '.tc{text-align:center;}.fw{font-weight:bold;}' +
     'table{width:100%;border-collapse:collapse;}' +
