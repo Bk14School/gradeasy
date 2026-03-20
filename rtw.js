@@ -5,6 +5,124 @@
 // 1. ฟังก์ชันแสดงตาราง RTW และเกณฑ์การประเมินบนหน้าจอ
 // 1. ฟังก์ชันแสดงตาราง RTW และเกณฑ์การประเมินบนหน้าจอ
 // 1. ฟังก์ชันแสดงตาราง RTW และเกณฑ์การประเมินบนหน้าจอ
+  function renderGuidanceTable(isRecalculating = false) {
+  const container = $('guidanceContainer');
+  if (!App.students.length) return;
+
+  const cls = $('gClass').value.trim();
+  const defaultTerm = cls.includes("เทอม 2") ? "2" : "1";
+  
+  // --- ระบบจดจำชื่อครูประจำชั้นแยกตามห้องเรียน ---
+  App.hrMap = App.hrMap || {};
+  let hrTeacherStr = App.hrMap[cls];
+  if (hrTeacherStr === undefined) {
+    hrTeacherStr = (App.user && App.user.classroom === cls) ? App.user.name : "";
+  }
+
+  // 1. ค้นหาแผงควบคุมหลัก ถ้ายังไม่มีให้สร้างขึ้นมาใหม่แค่ "กล่องเดียว"
+  let controlPanel = $('guide_panel_control_v3');
+  
+  if (!controlPanel) {
+      // เคลียร์กล่องจากโค้ดเวอร์ชันเก่าๆ ทิ้งให้หมด (ถ้ามีตกค้าง)
+      document.querySelectorAll('#guide_panel_control, .guide-dynamic-panel').forEach(el => el.remove());
+      
+      // ปิดการแสดงผลของกล่องดั้งเดิมใน HTML (ซ่อนไว้เฉยๆ เพื่อไม่ให้มีปัญหาหาตัวแปรไม่เจอ)
+      const legacyMaxTime = document.getElementById('guidance_max_time');
+      if (legacyMaxTime) {
+          const legacyBox = legacyMaxTime.closest('div[style*="display:flex"]');
+          if (legacyBox) legacyBox.style.display = 'none';
+      }
+      
+      // สร้าง Element ใหม่ขึ้นมาเป็นฐานสำหรับแผงควบคุม
+      controlPanel = document.createElement('div');
+      controlPanel.id = 'guide_panel_control_v3';
+      container.parentNode.insertBefore(controlPanel, container);
+  }
+
+  // 2. เมื่อกดโหลดรายชื่อ (isRecalculating = false) ให้อัปเดตเนื้อหาในแผงควบคุม
+  if (!isRecalculating) {
+    controlPanel.innerHTML = `
+      <div style="display:flex; align-items:center; gap:15px; margin-bottom:15px; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e2e8f0; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-weight:bold; color:#701a75; margin:0;">👨‍🏫 ครูประจำชั้น:</label>
+          <input type="text" id="guidance_teacher" value="${hrTeacherStr}" 
+                 oninput="App.hrMap[document.getElementById('gClass').value.trim()] = this.value; if(document.getElementById('rtw_homeroom_teacher')) document.getElementById('rtw_homeroom_teacher').value = this.value;" 
+                 style="width:250px; padding:6px; border:1px solid #94a3b8; border-radius:4px; font-weight:bold;">
+        </div>
+        
+        <div style="display:flex; align-items:center; gap:8px; border-left:2px solid #fdf4ff; padding-left:15px;">
+          <label style="font-weight:bold; color:#0369a1; margin:0;">📅 ภาคเรียน:</label>
+          <select id="guide_term" style="padding:6px; border-radius:4px; font-weight:bold;" onchange="calcGuidanceSchedule()">
+            <option value="1" ${defaultTerm === "1" ? "selected" : ""}>1</option>
+            <option value="2" ${defaultTerm === "2" ? "selected" : ""}>2</option>
+          </select>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-weight:bold; color:#0369a1; margin:0;">เรียนทุกวัน:</label>
+          <select id="guide_day" style="padding:6px; border-radius:4px; font-weight:bold;" onchange="calcGuidanceSchedule()">
+            <option value="1">จันทร์</option>
+            <option value="2">อังคาร</option>
+            <option value="3">พุธ</option>
+            <option value="4">พฤหัสบดี</option>
+            <option value="5" selected>ศุกร์</option>
+          </select>
+        </div>
+
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:6px 15px; border-radius:50px; font-weight:bold;">
+          รวมเวลาเรียน: <span id="guide_total_show" style="font-size:1.1rem; color:#15803d;">0</span> คาบ
+        </div>
+      </div>
+    `;
+    
+    // สั่งให้คำนวณจำนวนคาบ แล้ววาดตารางต่อ
+    setTimeout(calcGuidanceSchedule, 100);
+    return; 
+  }
+
+  // 3. ส่วนของการวาดตารางข้อมูลด้านล่าง (ส่วนนี้จะถูกรีเฟรชบ่อยๆ ตามการคลิกหรือแก้ข้อมูล)
+  const maxTime = App.guidanceDates.length;
+
+  const htmlRows = App.students.map((s, idx) => {
+    const g = s.guidance_data || {};
+    const attended = g.attended !== undefined ? g.attended : maxTime; 
+    const result = g.result || 'ผ่าน';
+
+    return `
+      <tr data-guidesid="${s.studentId}">
+        <td class="ass-no">${idx + 1}</td>
+        <td class="ass-name" style="text-align:left; background:#fff; position:sticky; left:0; z-index:10;">${s.name}</td>
+        <td>
+          <input type="number" class="inp-ass guide-time" min="0" max="${maxTime}" value="${attended}" oninput="calcGuidanceRow(this)" style="width:60px;">
+        </td>
+        <td>
+          <select class="sinput guide-result" style="width:90px; padding:4px; font-size:0.85rem; font-weight:bold; color:${result==='ผ่าน'?'#16a34a':'#dc2626'};" onchange="this.style.color = this.value==='ผ่าน'?'#16a34a':'#dc2626'">
+            <option value="ผ่าน" ${result === 'ผ่าน' ? 'selected' : ''}>ผ่าน</option>
+            <option value="ไม่ผ่าน" ${result === 'ไม่ผ่าน' ? 'selected' : ''}>ไม่ผ่าน</option>
+          </select>
+        </td>
+        <td><input type="text" class="inp-ass guide-note" value="${g.note || ''}" style="width:90%; text-align:left; padding:4px 8px;" placeholder="หมายเหตุ..."></td>
+      </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="ass-wrap">
+      <table class="ass-tbl" style="font-size:13px;">
+        <thead style="background:#fdf4ff;">
+          <tr>
+            <th style="width:40px;">ที่</th>
+            <th style="min-width:180px;">ชื่อ-นามสกุล</th>
+            <th style="width:90px;">เข้าร่วม (ครั้ง)</th>
+            <th style="width:110px;">ผลการประเมิน</th>
+            <th>หมายเหตุ</th>
+          </tr>
+        </thead>
+        <tbody id="guidanceBody">${htmlRows}</tbody>
+      </table>
+    </div>`;
+}
+  // 2. ฟังก์ชันคำนวณคะแนนและตัดเกรด
+// ฟังก์ชันคำนวณคะแนน RTW และเลื่อนเคอร์เซอร์อัตโนมัติ (แบบเลื่อนลง)
 function calcRTWRow(input) {
   if (!input) return;
   const tr = input.closest('tr');
@@ -58,16 +176,21 @@ function calcRTWRow(input) {
 async function saveRTWData() {
   const records = [];
   $$('#rtwBody tr[data-rtwsid]').forEach(tr => {
+    const getV = sel => parseFloat(tr.querySelector(sel)?.value) || 0;
     records.push({
-      studentId: tr.getAttribute('data-rtwsid'),
-      r1: tr.querySelector('.rtw-r1').value,
-      r2: tr.querySelector('.rtw-r2').value,
-      c1: tr.querySelector('.rtw-c1').value,
-      c2: tr.querySelector('.rtw-c2').value,
-      w1: tr.querySelector('.rtw-w1').value,
-      w2: tr.querySelector('.rtw-w2').value,
-      total: tr.querySelector('.rtw-total').textContent,
-      grade: tr.querySelector('.rtw-grade').textContent
+      studentId : tr.getAttribute('data-rtwsid'),
+      r1_1  : getV('.rtw-r1-1'),
+      r1_2  : getV('.rtw-r1-2'),
+      r2_1  : getV('.rtw-r2-1'),
+      r2_2  : getV('.rtw-r2-2'),
+      c1_3  : getV('.rtw-c1-3'),
+      c1_4  : getV('.rtw-c1-4'),
+      c2_3  : getV('.rtw-c2-3'),
+      c2_4  : getV('.rtw-c2-4'),
+      w1_5  : getV('.rtw-w1-5'),
+      w2_5  : getV('.rtw-w2-5'),
+      total : tr.querySelector('.rtw-grand-total')?.textContent || '0',
+      grade : tr.querySelector('.rtw-grade')?.textContent || ''
     });
   });
 
@@ -75,10 +198,10 @@ async function saveRTWData() {
   Utils.showLoading('กำลังบันทึก...');
   try {
     const res = await api('saveRTW', {
-      year: $('gYear').value,
-      classroom: $('gClass').value,
-      subject: $('gSubj').value,
-      records: records
+      year      : $('gYear').value,
+      classroom : $('gClass').value,
+      subject   : $('gSubj').value,
+      records   : records
     });
     Utils.toast('✅ ' + res);
   } catch (e) { Utils.toast(e.message, 'error'); }
