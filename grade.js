@@ -144,13 +144,28 @@ async function loadGrades() {
       ]);
     } catch (e) { /* ถ้ายังไม่มีชีท ไม่ error */ }
 
-    // เก็บใน App.guidanceData เพื่อให้ guidance.js ใช้
-    App.guidanceData = { '1': guidanceMap1 || {}, '2': guidanceMap2 || {} };
+    // แยก topics/teachers metadata ออกจาก map แล้วเก็บใน App.guidanceData
+    function extractGuidanceMeta(gmap) {
+      var topics   = (gmap && gmap['__topics__'])   || [];
+      var teachers = (gmap && gmap['__teachers__']) || [];
+      var clean    = {};
+      Object.keys(gmap || {}).forEach(function(k) {
+        if (k !== '__topics__' && k !== '__teachers__') clean[k] = gmap[k];
+      });
+      clean._topics   = topics;
+      clean._teachers = teachers;
+      return clean;
+    }
+
+    App.guidanceData = {
+      '1': extractGuidanceMeta(guidanceMap1),
+      '2': extractGuidanceMeta(guidanceMap2)
+    };
 
     App.students = (res.students || []).map(s => ({
       ...s,
-      rtw_data      : rtwMap[s.studentId]          || {},
-      guidance_data : guidanceMap1[s.studentId]     || {} // default = เทอม 1
+      rtw_data      : rtwMap[s.studentId]      || {},
+      guidance_data : guidanceMap1[s.studentId] || {}
     }));
     App.expanded = { 1: true, 2: true };
     $('gradePanel').style.display = '';
