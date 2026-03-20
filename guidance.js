@@ -163,6 +163,7 @@ function onGuidanceSettingChange() {
 }
 
 // ── 3. สร้างตารางหลัก ────────────────────────────────
+// ── 3. สร้างตารางหลัก (2 ส่วน: บันทึกกิจกรรม + เช็คชื่อ) ──
 function _buildGuidanceTable() {
   const container = $('guidanceContainer');
   if (!container) return;
@@ -170,47 +171,63 @@ function _buildGuidanceTable() {
   const dates  = App.guidanceDates;
   const nDates = dates.length;
 
-  const dateHeaders = dates.map((d, i) => `
-    <th style="min-width:52px;vertical-align:bottom;padding:0 2px 4px;border:1px solid #e9d5ff;background:#f5f3ff;">
-      <div style="font-size:10px;font-weight:600;color:#7c3aed;white-space:nowrap;text-align:center;">
-        ครั้งที่ ${i+1}<br>
-        <span style="color:#94a3b8;font-weight:400;">${shortThaiDate(d)}</span>
-      </div>
-    </th>`).join('');
+  // ── ส่วนที่ 1: บันทึกกิจกรรม (ครั้งที่ + หัวข้อ + ผู้รับผิดชอบ) ──
+  const activityRows = dates.map((d, i) => `
+    <tr>
+      <td style="text-align:center;border:1px solid #e2e8f0;padding:5px;color:#94a3b8;font-size:.8rem;">${i+1}</td>
+      <td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;font-size:.82rem;color:#6d28d9;white-space:nowrap;">${shortThaiDate(d)}</td>
+      <td style="border:1px solid #e2e8f0;padding:2px 4px;">
+        <input type="text" class="guide-topic" data-idx="${i}"
+          value="${App.guidanceTopics[i] || ''}"
+          placeholder="หัวข้อกิจกรรม..."
+          style="width:100%;border:none;background:transparent;font-family:inherit;
+                 font-size:.84rem;padding:4px 6px;outline:none;">
+      </td>
+      <td style="border:1px solid #e2e8f0;padding:2px 4px;">
+        <input type="text" class="guide-teacher" data-idx="${i}"
+          value="${(App.guidanceTeachers && App.guidanceTeachers[i]) || (document.getElementById('guidance_teacher') && document.getElementById('guidance_teacher').value) || ''}"
+          placeholder="ครูผู้รับผิดชอบ..."
+          style="width:100%;border:none;background:transparent;font-family:inherit;
+                 font-size:.84rem;padding:4px 6px;outline:none;">
+      </td>
+    </tr>`).join('');
 
-  const topicInputs = dates.map((d, i) => `
-    <th style="padding:2px;border:1px solid #e9d5ff;background:#fdf4ff;">
-      <input type="text" class="guide-topic" data-idx="${i}"
-        placeholder="หัวข้อ..."
-        value="${App.guidanceTopics[i] || ''}"
-        style="width:100%;min-width:48px;font-size:10px;padding:3px 4px;
-               border:1px solid #ddd6fe;border-radius:4px;font-family:inherit;text-align:center;">
-    </th>`).join('');
+  // ── ส่วนที่ 2: ตารางเช็คชื่อรายวัน (เหมือน PDF) ──
+  // header วันที่แนวตั้ง
+  const dateHeaders = dates.map((d, i) => {
+    const p = d.split('/');
+    const m = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
+               'ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    return `<th style="width:22px;vertical-align:bottom;padding-bottom:4px;
+                       border:1px solid #e2e8f0;background:#f8fafc;">
+      <div style="writing-mode:vertical-rl;transform:rotate(180deg);
+                  font-size:10px;font-weight:600;color:#7c3aed;white-space:nowrap;">
+        ${parseInt(p[0])} ${m[parseInt(p[1])]} ${p[2].slice(-2)}
+      </div>
+    </th>`;
+  }).join('');
 
   const attStyle = v => {
-    if (v === 'ข') return { bg:'#fee2e2', color:'#dc2626' };
-    if (v === 'ล') return { bg:'#fef3c7', color:'#b45309' };
-    if (v === '-') return { bg:'#f1f5f9', color:'#94a3b8' };
-    return { bg:'#f0fdf4', color:'#166534' };
+    if (v === 'ข') return { bg:'#fee2e2', color:'#dc2626', label:'ข' };
+    if (v === 'ล') return { bg:'#fef3c7', color:'#b45309', label:'ล' };
+    if (v === '-') return { bg:'#f8fafc', color:'#94a3b8', label:'-' };
+    return { bg:'#f0fdf4', color:'#166534', label:'✓' };  // ป = ✓
   };
 
   const bodyRows = App.students.map((s, idx) => {
     const saved = s.guidance_data || {};
 
-    // pre-fill: ถ้ามีข้อมูลบันทึกไว้ → ใช้ของเดิม
-    // ถ้ายังไม่มี → ดึงจาก statusByDate รายวันจริง (ม/ข/ล/ป)
     let attArray;
     if (saved.attArray && Array.isArray(saved.attArray) && saved.attArray.length > 0) {
       attArray = [...saved.attArray];
       while (attArray.length < nDates) attArray.push('ป');
     } else {
-      // ดึงจาก App.guidanceAttMap ที่โหลดมาจาก getAttendanceDetail API
       const sbd = App.guidanceAttMap[s.studentId] || {};
       attArray = dates.map(dateStr => {
         const raw = String(sbd[dateStr] || '').trim();
         if (raw === 'ข') return 'ข';
         if (raw === 'ล' || raw === 'ป') return 'ล';
-        return 'ป'; // ม หรือ ว่าง → ถือว่ามา
+        return 'ป';
       });
     }
 
@@ -223,45 +240,41 @@ function _buildGuidanceTable() {
     const attCells = dates.map((d, i) => {
       const v  = attArray[i] !== undefined ? attArray[i] : 'ป';
       const st = attStyle(v);
-      return `
-        <td style="padding:2px;border:1px solid #e9d5ff;text-align:center;">
-          <select class="guide-att" data-idx="${i}"
-            onchange="calcGuidanceGridRow(this)"
-            style="width:48px;padding:2px 1px;font-size:12px;font-weight:700;
-                   text-align:center;border:1px solid #ddd6fe;border-radius:4px;
-                   font-family:inherit;cursor:pointer;background:${st.bg};color:${st.color};">
-            <option value="ป" ${v==='ป'?'selected':''} style="background:#f0fdf4;color:#166534;">ป</option>
-            <option value="ข" ${v==='ข'?'selected':''} style="background:#fee2e2;color:#dc2626;">ข</option>
-            <option value="ล" ${v==='ล'?'selected':''} style="background:#fef3c7;color:#b45309;">ล</option>
-            <option value="-" ${v==='-'?'selected':''} style="background:#f1f5f9;color:#94a3b8;">-</option>
-          </select>
-        </td>`;
+      return `<td class="guide-day-cell" data-idx="${i}"
+        onclick="cycleGuidanceDay(this)"
+        data-flag="${v}"
+        style="width:22px;min-width:22px;text-align:center;cursor:pointer;
+               border:1px solid #e2e8f0;padding:2px 0;font-size:12px;
+               font-weight:700;background:${st.bg};color:${st.color};
+               user-select:none;transition:background .1s;">
+        ${st.label}
+      </td>`;
     }).join('');
 
     return `
       <tr data-guidesid="${s.studentId}">
-        <td class="ass-no"
-          style="text-align:center;background:#fff;position:sticky;left:0;z-index:10;
-                 border-right:1px solid #e9d5ff;font-size:.78rem;color:#94a3b8;">
+        <td style="text-align:center;border:1px solid #e2e8f0;padding:4px;
+                   position:sticky;left:0;z-index:10;background:#fff;
+                   font-size:.78rem;color:#94a3b8;min-width:30px;">
           ${idx+1}
         </td>
         <td class="ass-name"
-          style="text-align:left;background:#fff;position:sticky;left:35px;z-index:10;
-                 border-right:2px solid #c4b5fd;white-space:nowrap;padding:6px 10px;font-weight:600;">
+          style="text-align:left;border:1px solid #e2e8f0;padding:5px 8px;
+                 position:sticky;left:30px;z-index:10;background:#fff;
+                 white-space:nowrap;font-weight:600;min-width:180px;
+                 border-right:2px solid #c4b5fd;">
           ${s.name}
-          <span style="font-size:.7rem;color:#94a3b8;margin-left:6px;">
-            ม${s.stats&&s.stats.present||0} ข${s.stats&&s.stats.absent||0} ล${s.stats&&s.stats.leave||0}
-          </span>
         </td>
         ${attCells}
         <td class="guide-total-val"
           style="text-align:center;font-weight:700;color:#0369a1;
-                 background:#eff6ff;border:1px solid #e9d5ff;white-space:nowrap;">
-          ${nPresent}
+                 background:#eff6ff;border:1px solid #e2e8f0;
+                 padding:4px 6px;white-space:nowrap;min-width:48px;">
+          ${nPresent}/${nBase}
         </td>
-        <td style="text-align:center;border:1px solid #e9d5ff;">
+        <td style="text-align:center;border:1px solid #e2e8f0;padding:3px 4px;">
           <select class="guide-result sinput"
-            style="width:90px;padding:3px 4px;font-size:.78rem;font-weight:700;
+            style="width:88px;padding:3px 4px;font-size:.78rem;font-weight:700;
                    background:${resBg};color:${resColor};
                    border:1.5px solid ${result==='ผ่าน'?'#86efac':'#fca5a5'};
                    border-radius:6px;font-family:inherit;"
@@ -278,58 +291,98 @@ function _buildGuidanceTable() {
   }).join('');
 
   container.innerHTML = `
-    <div class="ass-wrap"
-      style="max-height:65vh;overflow:auto;border:1px solid #e9d5ff;border-radius:10px;">
-      <table class="ass-tbl"
-        style="font-size:13px;border-collapse:collapse;width:max-content;min-width:100%;">
-        <thead style="position:sticky;top:0;z-index:20;background:#f5f3ff;">
-          <tr>
-            <th rowspan="2"
-              style="width:35px;position:sticky;left:0;z-index:30;background:#f5f3ff;border-right:1px solid #e9d5ff;">ที่</th>
-            <th rowspan="2"
-              style="min-width:180px;position:sticky;left:35px;z-index:30;
-                     background:#f5f3ff;border-right:2px solid #c4b5fd;text-align:left;padding-left:10px;">ชื่อ-นามสกุล</th>
-            ${dateHeaders}
-            <th rowspan="2" style="width:48px;background:#eff6ff;border:1px solid #e9d5ff;">มา<br>(ครั้ง)</th>
-            <th rowspan="2" style="width:90px;background:#f0fdf4;border:1px solid #e9d5ff;">ผลประเมิน</th>
-          </tr>
-          <tr>${topicInputs}</tr>
-        </thead>
-        <tbody id="guidanceBody">${bodyRows}</tbody>
-      </table>
+    <!-- ส่วน 1: บันทึกกิจกรรม -->
+    <div style="margin-bottom:16px;">
+      <div style="font-weight:700;font-size:.88rem;color:#7c3aed;
+                  padding:8px 12px;background:#f5f3ff;border-radius:8px 8px 0 0;
+                  border:1px solid #e9d5ff;border-bottom:none;">
+        📋 บันทึกกิจกรรมแนะแนว (${nDates} ครั้ง)
+      </div>
+      <div style="border:1px solid #e9d5ff;border-radius:0 0 8px 8px;overflow:auto;max-height:280px;">
+        <table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:500px;">
+          <thead style="position:sticky;top:0;z-index:10;background:#fdf4ff;">
+            <tr>
+              <th style="width:40px;border:1px solid #e2e8f0;padding:7px 4px;">ครั้งที่</th>
+              <th style="width:90px;border:1px solid #e2e8f0;padding:7px 4px;">วันที่</th>
+              <th style="border:1px solid #e2e8f0;padding:7px 8px;text-align:left;">หัวข้อกิจกรรม</th>
+              <th style="width:200px;border:1px solid #e2e8f0;padding:7px 8px;text-align:left;">ครูผู้รับผิดชอบ</th>
+            </tr>
+          </thead>
+          <tbody>${activityRows}</tbody>
+        </table>
+      </div>
     </div>
-    <div style="font-size:.78rem;color:#6d28d9;margin-top:8px;background:#f5f3ff;border-radius:6px;padding:6px 12px;">
-      💡 สัญลักษณ์:
-      <b style="color:#166534;">ป = มาเรียนปกติ</b> &nbsp;|&nbsp;
-      <b style="color:#dc2626;">ข = ขาดเรียน</b> &nbsp;|&nbsp;
-      <b style="color:#b45309;">ล = ลา</b> &nbsp;|&nbsp;
-      <b style="color:#94a3b8;">- = งดเรียน (ไม่นับคาบ)</b>
+
+    <!-- ส่วน 2: ตารางเช็คชื่อรายวัน -->
+    <div>
+      <div style="font-weight:700;font-size:.88rem;color:#0369a1;
+                  padding:8px 12px;background:#eff6ff;border-radius:8px 8px 0 0;
+                  border:1px solid #bae6fd;border-bottom:none;">
+        ✅ ตารางการเข้าร่วมกิจกรรม
+        <span style="font-size:.75rem;font-weight:400;color:#64748b;margin-left:8px;">
+          (คลิกช่องเพื่อเปลี่ยน: ✓มา → ขขาด → ลลา → วนซ้ำ)
+        </span>
+      </div>
+      <div style="border:1px solid #bae6fd;border-radius:0 0 8px 8px;overflow:auto;max-height:55vh;">
+        <table style="border-collapse:collapse;font-size:.84rem;width:max-content;min-width:100%;">
+          <thead style="position:sticky;top:0;z-index:20;background:#f0f9ff;">
+            <tr>
+              <th rowspan="2" style="width:30px;position:sticky;left:0;z-index:30;
+                  background:#f0f9ff;border:1px solid #e2e8f0;">ที่</th>
+              <th rowspan="2" style="min-width:180px;text-align:left;padding-left:8px;
+                  position:sticky;left:30px;z-index:30;background:#f0f9ff;
+                  border:1px solid #e2e8f0;border-right:2px solid #c4b5fd;">ชื่อ-นามสกุล</th>
+              <th colspan="${nDates}" style="border:1px solid #e2e8f0;
+                  background:#e0f2fe;font-size:.8rem;">
+                วันที่เข้าร่วมกิจกรรม
+              </th>
+              <th rowspan="2" style="width:54px;border:1px solid #e2e8f0;
+                  background:#eff6ff;font-size:.78rem;">มา/รวม</th>
+              <th rowspan="2" style="width:90px;border:1px solid #e2e8f0;
+                  background:#f0fdf4;">ผลประเมิน</th>
+            </tr>
+            <tr style="height:90px;">${dateHeaders}</tr>
+          </thead>
+          <tbody id="guidanceBody">${bodyRows}</tbody>
+        </table>
+      </div>
     </div>`;
 }
 
-// ── 4. คำนวณ ผ่าน/ไม่ผ่าน เมื่อเปลี่ยน dropdown ──
-function calcGuidanceGridRow(sel) {
-  const v  = sel.value;
-  const st = v==='ข' ? {bg:'#fee2e2',color:'#dc2626'}
-           : v==='ล' ? {bg:'#fef3c7',color:'#b45309'}
-           : v==='-' ? {bg:'#f1f5f9',color:'#94a3b8'}
-                     : {bg:'#f0fdf4',color:'#166534'};
-  sel.style.background = st.bg;
-  sel.style.color      = st.color;
+// ── 4. คลิก toggle วัน: ป→ข→ล→ป ────────────────────
+function cycleGuidanceDay(cell) {
+  const cycle = { 'ป':'ข', 'ข':'ล', 'ล':'ป', '-':'ป', '':'ป' };
+  const styleMap = {
+    'ป': { bg:'#f0fdf4', color:'#166534', label:'✓' },
+    'ข': { bg:'#fee2e2', color:'#dc2626', label:'ข' },
+    'ล': { bg:'#fef3c7', color:'#b45309', label:'ล' }
+  };
+  const cur  = cell.getAttribute('data-flag') || 'ป';
+  const next = cycle[cur] ?? 'ป';
+  const st   = styleMap[next];
 
-  const tr       = sel.closest('tr');
-  const atts     = [...tr.querySelectorAll('.guide-att')].map(s => s.value);
-  const nPresent = atts.filter(v => v === 'ป').length;
-  const nBase    = atts.filter(v => v !== '-').length;
+  cell.setAttribute('data-flag', next);
+  cell.style.background = st.bg;
+  cell.style.color      = st.color;
+  cell.textContent      = st.label;
 
-  tr.querySelector('.guide-total-val').textContent = nPresent;
+  // อัปเดต มา/รวม
+  const tr    = cell.closest('tr');
+  const flags = [...tr.querySelectorAll('.guide-day-cell')].map(c => c.getAttribute('data-flag') || 'ป');
+  const nP    = flags.filter(f => f === 'ป').length;
+  const nBase = flags.filter(f => f !== '-').length;
+  const totEl = tr.querySelector('.guide-total-val');
+  if (totEl) totEl.textContent = `${nP}/${nBase}`;
 
-  const resSel  = tr.querySelector('.guide-result');
-  const pass    = nBase > 0 && nPresent >= Math.ceil(nBase * 0.8) ? 'ผ่าน' : 'ไม่ผ่าน';
-  resSel.value              = pass;
-  resSel.style.background   = pass==='ผ่าน' ? '#dcfce7' : '#fee2e2';
-  resSel.style.color        = pass==='ผ่าน' ? '#16a34a' : '#dc2626';
-  resSel.style.borderColor  = pass==='ผ่าน' ? '#86efac' : '#fca5a5';
+  // auto-update ผล
+  const sel = tr.querySelector('.guide-result');
+  if (sel && nBase > 0) {
+    const pass = nP >= Math.ceil(nBase * 0.8) ? 'ผ่าน' : 'ไม่ผ่าน';
+    sel.value             = pass;
+    sel.style.background  = pass === 'ผ่าน' ? '#dcfce7' : '#fee2e2';
+    sel.style.color       = pass === 'ผ่าน' ? '#16a34a' : '#dc2626';
+    sel.style.borderColor = pass === 'ผ่าน' ? '#86efac' : '#fca5a5';
+  }
 }
 
 // ── 5. บันทึกข้อมูล ──────────────────────────────────
@@ -340,12 +393,17 @@ async function saveGuidanceData() {
   const rows = $$('#guidanceBody tr[data-guidesid]');
   if (!rows.length) return Utils.toast('ไม่พบข้อมูล', 'error');
 
-  const records = [...rows].map(tr => ({
-    studentId : tr.getAttribute('data-guidesid'),
-    attArray  : [...tr.querySelectorAll('.guide-att')].map(s => s.value),
-    attended  : tr.querySelector('.guide-total-val').textContent,
-    result    : tr.querySelector('.guide-result').value
-  }));
+  const records = [...rows].map(tr => {
+    // อ่านจาก data-flag (click-cycle) แทน dropdown เดิม
+    const flags    = [...tr.querySelectorAll('.guide-day-cell')].map(c => c.getAttribute('data-flag') || 'ป');
+    const nPresent = flags.filter(f => f === 'ป').length;
+    return {
+      studentId : tr.getAttribute('data-guidesid'),
+      attArray  : flags,
+      attended  : nPresent,
+      result    : tr.querySelector('.guide-result').value
+    };
+  });
 
   Utils.showLoading('กำลังบันทึกแนะแนว...');
   try {
@@ -381,11 +439,15 @@ function printGuidanceReport() {
   const nDates      = App.guidanceDates.length;
   const displayCols = Math.max(20, nDates);
 
+  // อ่านหัวข้อกิจกรรมจากส่วนบันทึก
+  const topics   = [...document.querySelectorAll('.guide-topic')].map(i => i.value);
+  const teachers_ = [...document.querySelectorAll('.guide-teacher')].map(i => i.value);
+
   const rows = [...$$('#guidanceBody tr[data-guidesid]')].map((tr, i) => ({
     no      : i + 1,
-    name    : tr.querySelector('.ass-name').textContent.replace(/ม\d+ ข\d+ ล\d+/,'').trim(),
-    atts    : [...tr.querySelectorAll('.guide-att')].map(s => s.value),
-    attended: tr.querySelector('.guide-total-val').textContent,
+    name    : tr.querySelector('.ass-name').textContent.trim(),
+    atts    : [...tr.querySelectorAll('.guide-day-cell')].map(c => c.getAttribute('data-flag') || 'ป'),
+    attended: [...tr.querySelectorAll('.guide-day-cell')].filter(c => c.getAttribute('data-flag') === 'ป').length,
     result  : tr.querySelector('.guide-result').value
   }));
 
@@ -543,7 +605,7 @@ th,td{border:1px solid #000;padding:6px;text-align:center;}
       ${Array(displayCols).fill(0).map((_,i) => {
         const dStr  = App.guidanceDates[i] ? fmtDate(App.guidanceDates[i]) : '';
         const topic = topics[i] || '';
-        const tStr  = App.guidanceDates[i] ? teachers[0] : '';
+        const tStr  = teachers_[i] || teachers[0] || '';
         return `<tr><td style="height:28px;">${i+1}</td><td style="font-size:13px;">${dStr}</td><td style="text-align:left;padding-left:10px;font-size:13px;">${topic}</td><td style="font-size:13px;">${tStr}</td></tr>`;
       }).join('')}
     </tbody>
