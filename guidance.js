@@ -126,13 +126,12 @@ function renderGuidanceTable(isRecalculating) {
           '</div>' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
             '<label style="font-weight:700;color:#0369a1;margin:0;font-size:.85rem;">วันเรียน</label>' +
-            '<select id="guide_day_t' + term + '" onchange="_renderGuidanceForTerm(\'' + term + '\')" style="padding:5px 8px;border-radius:6px;border:1.5px solid #bae6fd;font-weight:700;font-family:inherit;">' +
-              '<option value="1">จันทร์</option>' +
-              '<option value="2">อังคาร</option>' +
-              '<option value="3">พุธ</option>' +
-              '<option value="4">พฤหัสบดี</option>' +
-              '<option value="5" selected>ศุกร์</option>' +
-            '</select>' +
+            (function() {
+              var sd = String((App.guidanceData[term] && App.guidanceData[term]._day) || '5');
+              var days = [['1','จันทร์'],['2','อังคาร'],['3','พุธ'],['4','พฤหัสบดี'],['5','ศุกร์']];
+              var opts = days.map(function(d) { return '<option value="'+d[0]+'"'+(d[0]===sd?' selected':'')+'>'+d[1]+'</option>'; }).join('');
+              return '<select id="guide_day_t'+term+'" onchange="_renderGuidanceForTerm(\''+term+'\')" style="padding:5px 8px;border-radius:6px;border:1.5px solid #bae6fd;font-weight:700;font-family:inherit;">'+opts+'</select>';
+            }()) +
           '</div>' +
           '<div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:5px 14px;border-radius:50px;font-weight:700;font-size:.85rem;">' +
             'รวม <span id="guide_total_t' + term + '" style="font-size:1rem;color:#15803d;">0</span> คาบ' +
@@ -410,11 +409,16 @@ async function saveGuidanceData(term) {
 
   Utils.showLoading('กำลังบันทึกแนะแนว เทอม ' + term + '...');
   try {
+    var dayEl = document.getElementById('guide_day_t' + term);
+    var dayOfWeek = dayEl ? dayEl.value : '5';
+    // บันทึก dayOfWeek ลงใน App.guidanceData ด้วย
+    if (!App.guidanceData[term]) App.guidanceData[term] = {};
+    App.guidanceData[term]._day = dayOfWeek;
     await api('saveGuidance', {
       year      : $('gYear').value,
       classroom : $('gClass').value,
       term      : term,
-      maxTime   : (App.termDates['t'+term+'_start'] ? rows.length : 0),
+      dayOfWeek : dayOfWeek,
       teacher   : (document.getElementById('guidance_teacher_t'+term)||{}).value || '',
       topics    : topics,
       records   : records
