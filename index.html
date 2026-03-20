@@ -2913,29 +2913,40 @@ document.addEventListener('keydown', e => {
   const container = $('guidanceContainer');
   if (!App.students.length) return;
 
+  const cls = $('gClass').value.trim();
+  const defaultTerm = cls.includes("เทอม 2") ? "2" : "1";
+  
+  // --- ระบบจดจำชื่อครูประจำชั้นแยกตามห้องเรียน ---
+  App.hrMap = App.hrMap || {};
+  let hrTeacherStr = App.hrMap[cls];
+  if (hrTeacherStr === undefined) {
+    hrTeacherStr = (App.user && App.user.classroom === cls) ? App.user.name : "";
+  }
+
+  // 1. ค้นหาแผงควบคุมหลัก ถ้ายังไม่มีให้สร้างขึ้นมาใหม่แค่ "กล่องเดียว"
+  let controlPanel = $('guide_panel_control_v3');
+  
+  if (!controlPanel) {
+      // เคลียร์กล่องจากโค้ดเวอร์ชันเก่าๆ ทิ้งให้หมด (ถ้ามีตกค้าง)
+      document.querySelectorAll('#guide_panel_control, .guide-dynamic-panel').forEach(el => el.remove());
+      
+      // ปิดการแสดงผลของกล่องดั้งเดิมใน HTML (ซ่อนไว้เฉยๆ เพื่อไม่ให้มีปัญหาหาตัวแปรไม่เจอ)
+      const legacyMaxTime = document.getElementById('guidance_max_time');
+      if (legacyMaxTime) {
+          const legacyBox = legacyMaxTime.closest('div[style*="display:flex"]');
+          if (legacyBox) legacyBox.style.display = 'none';
+      }
+      
+      // สร้าง Element ใหม่ขึ้นมาเป็นฐานสำหรับแผงควบคุม
+      controlPanel = document.createElement('div');
+      controlPanel.id = 'guide_panel_control_v3';
+      container.parentNode.insertBefore(controlPanel, container);
+  }
+
+  // 2. เมื่อกดโหลดรายชื่อ (isRecalculating = false) ให้อัปเดตเนื้อหาในแผงควบคุม
   if (!isRecalculating) {
-    const cls = $('gClass').value.trim();
-    const defaultTerm = cls.includes("เทอม 2") ? "2" : "1";
-    
-    // --- ระบบจดจำชื่อครูประจำชั้นแยกตามห้องเรียน ---
-    App.hrMap = App.hrMap || {};
-    let hrTeacherStr = App.hrMap[cls];
-    if (hrTeacherStr === undefined) {
-      hrTeacherStr = (App.user && App.user.classroom === cls) ? App.user.name : "";
-    }
-
-    // 1. กวาดล้างกล่องควบคุมใหม่ที่เด้งซ้อนกันออกให้หมด
-    document.querySelectorAll('#guide_panel_control').forEach(el => el.remove());
-    
-    // 2. กวาดล้างกล่องเวอร์ชันเก่าที่ติดมากับ HTML (ตัวที่มีคำว่า "คาบเรียนทั้งหมด")
-    const legacyMaxTime = document.getElementById('guidance_max_time');
-    if (legacyMaxTime) {
-      const legacyContainer = legacyMaxTime.closest('div[style*="display:flex"]');
-      if (legacyContainer) legacyContainer.remove();
-    }
-
-    const panelHtml = `
-      <div id="guide_panel_control" style="display:flex; align-items:center; gap:15px; margin-bottom:15px; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e2e8f0; flex-wrap:wrap;">
+    controlPanel.innerHTML = `
+      <div style="display:flex; align-items:center; gap:15px; margin-bottom:15px; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e2e8f0; flex-wrap:wrap;">
         <div style="display:flex; align-items:center; gap:8px;">
           <label style="font-weight:bold; color:#701a75; margin:0;">👨‍🏫 ครูประจำชั้น:</label>
           <input type="text" id="guidance_teacher" value="${hrTeacherStr}" 
@@ -2968,13 +2979,12 @@ document.addEventListener('keydown', e => {
       </div>
     `;
     
-    // 3. แทรกแผงใหม่ลงในตำแหน่งที่ถูกต้อง (ใต้หัวข้อ 🧭 พอดี)
-    container.insertAdjacentHTML('beforebegin', panelHtml);
-    
+    // สั่งให้คำนวณจำนวนคาบ แล้ววาดตารางต่อ
     setTimeout(calcGuidanceSchedule, 100);
     return; 
   }
 
+  // 3. ส่วนของการวาดตารางข้อมูลด้านล่าง (ส่วนนี้จะถูกรีเฟรชบ่อยๆ ตามการคลิกหรือแก้ข้อมูล)
   const maxTime = App.guidanceDates.length;
 
   const htmlRows = App.students.map((s, idx) => {
