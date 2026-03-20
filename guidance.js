@@ -187,11 +187,6 @@ function _renderGuidanceForTerm(term) {
   var termEl    = document.getElementById('guide_day_t' + term);
   var dayOfWeek = termEl ? parseInt(termEl.value) : 5;
 
-  // บันทึก dayOfWeek ปัจจุบันกลับเข้า App.guidanceData เพื่อ persist ขณะอยู่หน้าเดิม
-  if (App.guidanceData && App.guidanceData[term]) {
-    App.guidanceData[term]._day = String(dayOfWeek);
-  }
-
   var startD = App.termDates['t' + term + '_start'];
   var endD   = App.termDates['t' + term + '_end'];
 
