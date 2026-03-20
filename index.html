@@ -2909,10 +2909,8 @@ document.addEventListener('keydown', e => {
 // 1. ฟังก์ชันแสดงตาราง RTW และเกณฑ์การประเมินบนหน้าจอ
 // 1. ฟังก์ชันแสดงตาราง RTW และเกณฑ์การประเมินบนหน้าจอ
 // 1. ฟังก์ชันแสดงตาราง RTW และเกณฑ์การประเมินบนหน้าจอ
-function renderGuidanceTable(isRecalculating = false) {
+  function renderGuidanceTable(isRecalculating = false) {
   const container = $('guidanceContainer');
-  const controlPanel = $('guidanceControlPanel'); // ดึงกล่องพักที่เราสร้างไว้ใน HTML
-  
   if (!App.students.length) return;
 
   if (!isRecalculating) {
@@ -2926,9 +2924,18 @@ function renderGuidanceTable(isRecalculating = false) {
       hrTeacherStr = (App.user && App.user.classroom === cls) ? App.user.name : "";
     }
 
-    // นำแผงควบคุมที่มีทุกอย่างรวมไว้ด้วยกัน ยัดลงไปใน HTML ช่องเดียวเลย
+    // 1. กวาดล้างกล่องควบคุมใหม่ที่เด้งซ้อนกันออกให้หมด
+    document.querySelectorAll('#guide_panel_control').forEach(el => el.remove());
+    
+    // 2. กวาดล้างกล่องเวอร์ชันเก่าที่ติดมากับ HTML (ตัวที่มีคำว่า "คาบเรียนทั้งหมด")
+    const legacyMaxTime = document.getElementById('guidance_max_time');
+    if (legacyMaxTime) {
+      const legacyContainer = legacyMaxTime.closest('div[style*="display:flex"]');
+      if (legacyContainer) legacyContainer.remove();
+    }
+
     const panelHtml = `
-      <div style="display:flex; align-items:center; gap:15px; margin-bottom:15px; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e2e8f0; flex-wrap:wrap;">
+      <div id="guide_panel_control" style="display:flex; align-items:center; gap:15px; margin-bottom:15px; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e2e8f0; flex-wrap:wrap;">
         <div style="display:flex; align-items:center; gap:8px;">
           <label style="font-weight:bold; color:#701a75; margin:0;">👨‍🏫 ครูประจำชั้น:</label>
           <input type="text" id="guidance_teacher" value="${hrTeacherStr}" 
@@ -2958,13 +2965,11 @@ function renderGuidanceTable(isRecalculating = false) {
         <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:6px 15px; border-radius:50px; font-weight:bold;">
           รวมเวลาเรียน: <span id="guide_total_show" style="font-size:1.1rem; color:#15803d;">0</span> คาบ
         </div>
-        <!-- ซ่อน input เดิมไว้เพื่อไม่ให้ระบบบันทึกพัง -->
-        <input type="hidden" id="guidance_max_time" value="">
       </div>
     `;
     
-    // ใส่ HTML เข้าไปในกล่อง แทนที่จะใช้วิธีแทรก (วิธีนี้รับประกัน 100% ว่ากล่องจะไม่ซ้อนกัน)
-    controlPanel.innerHTML = panelHtml;
+    // 3. แทรกแผงใหม่ลงในตำแหน่งที่ถูกต้อง (ใต้หัวข้อ 🧭 พอดี)
+    container.insertAdjacentHTML('beforebegin', panelHtml);
     
     setTimeout(calcGuidanceSchedule, 100);
     return; 
@@ -3009,7 +3014,7 @@ function renderGuidanceTable(isRecalculating = false) {
         <tbody id="guidanceBody">${htmlRows}</tbody>
       </table>
     </div>`;
-}  
+}
   // 2. ฟังก์ชันคำนวณคะแนนและตัดเกรด
 // ฟังก์ชันคำนวณคะแนน RTW และเลื่อนเคอร์เซอร์อัตโนมัติ (แบบเลื่อนลง)
 function calcRTWRow(input) {
