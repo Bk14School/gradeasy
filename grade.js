@@ -134,19 +134,23 @@ async function loadGrades() {
     normalizeUnits(1); normalizeUnits(2); renderSubList(1); if (!App.isSemMode) renderSubList(2);
     refreshUnitPanelLabels(); updateAutoScoreDisplay();
 
-    // ── โหลด rtw_data + guidance_data แล้ว merge เข้า students ──
-    let rtwMap = {}, guidanceMap = {};
+    // ── โหลด rtw_data + guidance_data (แยก term) แล้ว merge เข้า students ──
+    let rtwMap = {}, guidanceMap1 = {}, guidanceMap2 = {};
     try {
-      [rtwMap, guidanceMap] = await Promise.all([
+      [rtwMap, guidanceMap1, guidanceMap2] = await Promise.all([
         api('getRTWData',      { year, classroom: cls, subject: subj }),
-        api('getGuidanceData', { year, classroom: cls })
+        api('getGuidanceData', { year, classroom: cls, term: '1' }),
+        api('getGuidanceData', { year, classroom: cls, term: '2' })
       ]);
     } catch (e) { /* ถ้ายังไม่มีชีท ไม่ error */ }
 
+    // เก็บใน App.guidanceData เพื่อให้ guidance.js ใช้
+    App.guidanceData = { '1': guidanceMap1 || {}, '2': guidanceMap2 || {} };
+
     App.students = (res.students || []).map(s => ({
       ...s,
-      rtw_data      : rtwMap[s.studentId]      || {},
-      guidance_data : guidanceMap[s.studentId] || {}
+      rtw_data      : rtwMap[s.studentId]          || {},
+      guidance_data : guidanceMap1[s.studentId]     || {} // default = เทอม 1
     }));
     App.expanded = { 1: true, 2: true };
     $('gradePanel').style.display = '';
