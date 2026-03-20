@@ -1776,31 +1776,63 @@ body{
 </div>
    <!-- ===== TAB: กิจกรรมแนะแนว ===== -->
 <div class="settings-panel" id="panel_guidance">
-  <div class="card mb-3" style="background:#fdf4ff; border:1px solid #f5d0fe;">
-    <div style="font-weight:800; font-size:.9rem; color:#86198f; margin-bottom:15px;">
-      🧭 บันทึกผลการเข้าร่วมกิจกรรมแนะแนว
-    </div>
-    
-    <!-- สร้างจุดพักให้ JS นำแผงควบคุมมารวมกันที่นี่จุดเดียว จะได้ไม่ซ้อนกัน -->
-    <div id="guidanceControlPanel"></div>
 
-    <div id="guidanceContainer">
-      <div class="text-center text-muted py-3">กรุณาโหลดรายชื่อผู้เรียน</div>
-    </div>
-
-    <div class="d-flex justify-content-between align-items-center mt-3">
-      <div style="font-size:0.8rem; color:#64748b;">
-        * เกณฑ์การประเมิน: เวลาเรียนไม่น้อยกว่า 80% ให้ระดับผลการเรียน "ผ่าน (ผ)"
-      </div>
-      <button class="btn-pri" type="button" onclick="printGuidanceReport()" style="background:linear-gradient(135deg,#a21caf,#86198f);">
-        🖨️ พิมพ์เอกสารแนะแนว (4 หน้า)
-      </button>
-    </div>
-    
-    <button class="btn-save mt-3 w-100" onclick="saveGuidanceData()" style="background:linear-gradient(135deg,#c026d3,#a21caf);">
-      💾 บันทึกผลกิจกรรมแนะแนว
+  <!-- tabs เทอม 1 / เทอม 2 -->
+  <div class="ttabs mb-3" id="guidanceTabs">
+    <button class="ttab on" type="button" onclick="switchGuidanceTab('1', this)">
+      เทอม 1
+    </button>
+    <button class="ttab" type="button" onclick="switchGuidanceTab('2', this)">
+      เทอม 2
     </button>
   </div>
+
+  <!-- เทอม 1 -->
+  <div id="guidanceTerm1Panel">
+    <div class="card mb-3" style="background:#fdf4ff; border:1px solid #f5d0fe;">
+      <div style="font-weight:800; font-size:.9rem; color:#86198f; margin-bottom:15px;">
+        🧭 บันทึกผลการเข้าร่วมกิจกรรมแนะแนว <span style="color:#a21caf;">ภาคเรียนที่ 1</span>
+      </div>
+      <div id="guidanceContainer1">
+        <div class="text-center text-muted py-3">กรุณาโหลดรายชื่อผู้เรียน</div>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mt-3">
+        <div style="font-size:0.8rem; color:#64748b;">
+          * เกณฑ์: เวลาเรียนไม่น้อยกว่า 80% = "ผ่าน"
+        </div>
+        <button class="btn-pri" type="button" onclick="printGuidanceReport('1')" style="background:linear-gradient(135deg,#a21caf,#86198f);">
+          🖨️ พิมพ์รายงาน
+        </button>
+      </div>
+      <button class="btn-save mt-3 w-100" onclick="saveGuidanceData('1')" style="background:linear-gradient(135deg,#c026d3,#a21caf);">
+        💾 บันทึกกิจกรรมแนะแนว เทอม 1
+      </button>
+    </div>
+  </div>
+
+  <!-- เทอม 2 -->
+  <div id="guidanceTerm2Panel" style="display:none;">
+    <div class="card mb-3" style="background:#fdf4ff; border:1px solid #f5d0fe;">
+      <div style="font-weight:800; font-size:.9rem; color:#86198f; margin-bottom:15px;">
+        🧭 บันทึกผลการเข้าร่วมกิจกรรมแนะแนว <span style="color:#a21caf;">ภาคเรียนที่ 2</span>
+      </div>
+      <div id="guidanceContainer2">
+        <div class="text-center text-muted py-3">กรุณาโหลดรายชื่อผู้เรียน</div>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mt-3">
+        <div style="font-size:0.8rem; color:#64748b;">
+          * เกณฑ์: เวลาเรียนไม่น้อยกว่า 80% = "ผ่าน"
+        </div>
+        <button class="btn-pri" type="button" onclick="printGuidanceReport('2')" style="background:linear-gradient(135deg,#a21caf,#86198f);">
+          🖨️ พิมพ์รายงาน
+        </button>
+      </div>
+      <button class="btn-save mt-3 w-100" onclick="saveGuidanceData('2')" style="background:linear-gradient(135deg,#c026d3,#a21caf);">
+        💾 บันทึกกิจกรรมแนะแนว เทอม 2
+      </button>
+    </div>
+  </div>
+
 </div>
   </div>
 </div>
