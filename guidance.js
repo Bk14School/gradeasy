@@ -3,11 +3,14 @@
 // =====================================================
 
 // ── State ──────────────────────────────────────────
+// state แยกตาม term (key = '1' หรือ '2')
 App.guidanceDates    = [];
 App.guidanceTopics   = [];
 App.guidanceTeachers = [];
 App.hrMap            = App.hrMap || {};
 App.guidanceAttMap   = {}; // { studentId: { "dd/mm/yyyy": "ม"|"ข"|"ล"|"ป" } }
+App.guidanceActiveTerm = '1'; // term ที่กำลังแสดงอยู่
+App.guidanceData = { '1': {}, '2': {} }; // { term: { studentId: savedData } }
 
 // ── helpers ─────────────────────────────────────────
 function calcGuidanceDates() {
@@ -72,90 +75,156 @@ async function loadGuidanceAttendance() {
   }
 }
 
-// ── แผงควบคุม ────────────────────────────────────────
+// ── สลับ tab เทอม ────────────────────────────────────────
+function switchGuidanceTab(term, btn) {
+  App.guidanceActiveTerm = term;
+  document.querySelectorAll('#guidanceTabs .ttab').forEach(function(b) { b.classList.remove('on'); });
+  if (btn) btn.classList.add('on');
+  var p1 = document.getElementById('guidanceTerm1Panel');
+  var p2 = document.getElementById('guidanceTerm2Panel');
+  if (p1) p1.style.display = term === '1' ? '' : 'none';
+  if (p2) p2.style.display = term === '2' ? '' : 'none';
+  if (App.students && App.students.length) {
+    _renderGuidanceForTerm(term);
+  }
+}
+
+// ── แผงควบคุม (entry point จาก loadGrades) ─────────────
+// เรียกครั้งแรกตอนโหลดข้อมูล → สร้างแผงควบคุมในแต่ละ term container
 function renderGuidanceTable(isRecalculating) {
   isRecalculating = !!isRecalculating;
-  var container = $('guidanceContainer');
-  if (!container || !App.students || !App.students.length) return;
+
+  // ถ้ายังไม่มี students ไม่ทำอะไร
+  if (!App.students || !App.students.length) return;
 
   if (!isRecalculating) {
-    document.querySelectorAll('#guide_panel_control_v3, #guide_panel_control, .guide-dynamic-panel')
-      .forEach(function(el) { el.remove(); });
+    // ลบแผงเก่าออก
+    document.querySelectorAll('.guide-dynamic-panel').forEach(function(el) { el.remove(); });
 
     var cls = $('gClass').value.trim();
     if (App.hrMap[cls] === undefined) {
       App.hrMap[cls] = (App.user && App.user.classroom === cls) ? (App.user.name || '') : '';
     }
-    var hrName      = App.hrMap[cls] || '';
-    var defaultTerm = cls.includes('เทอม 2') ? '2' : '1';
 
-    var panel = document.createElement('div');
-    panel.id        = 'guide_panel_control_v3';
-    panel.className = 'guide-dynamic-panel';
-    panel.innerHTML =
-      '<div style="background:#fff;border:1px solid #e9d5ff;border-radius:10px;padding:14px 16px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;">' +
-        '<div style="display:flex;align-items:center;gap:8px;">' +
-          '<label style="font-weight:700;color:#7c3aed;margin:0;white-space:nowrap;font-size:.85rem;">👨‍🏫 ครูประจำชั้น</label>' +
-          '<input type="text" id="guidance_teacher" value="' + hrName + '"' +
-          ' placeholder="ชื่อครู / ครู ก และ ครู ข"' +
-          ' style="width:230px;padding:6px 10px;border:1.5px solid #c4b5fd;border-radius:6px;font-weight:700;font-family:inherit;font-size:.85rem;"' +
-          ' oninput="App.hrMap[document.getElementById(\'gClass\').value.trim()]=this.value;var rt=document.getElementById(\'rtw_homeroom_teacher\');if(rt)rt.value=this.value;">' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;gap:6px;">' +
-          '<label style="font-weight:700;color:#0369a1;margin:0;font-size:.85rem;">ภาคเรียน</label>' +
-          '<select id="guide_term" onchange="onGuidanceSettingChange()" style="padding:5px 8px;border-radius:6px;border:1.5px solid #bae6fd;font-weight:700;font-family:inherit;">' +
-            '<option value="1"' + (defaultTerm === '1' ? ' selected' : '') + '>1</option>' +
-            '<option value="2"' + (defaultTerm === '2' ? ' selected' : '') + '>2</option>' +
-          '</select>' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;gap:6px;">' +
-          '<label style="font-weight:700;color:#0369a1;margin:0;font-size:.85rem;">วันเรียน</label>' +
-          '<select id="guide_day" onchange="onGuidanceSettingChange()" style="padding:5px 8px;border-radius:6px;border:1.5px solid #bae6fd;font-weight:700;font-family:inherit;">' +
-            '<option value="1">จันทร์</option>' +
-            '<option value="2">อังคาร</option>' +
-            '<option value="3">พุธ</option>' +
-            '<option value="4">พฤหัสบดี</option>' +
-            '<option value="5" selected>ศุกร์</option>' +
-          '</select>' +
-        '</div>' +
-        '<div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:5px 14px;border-radius:50px;font-weight:700;font-size:.85rem;">' +
-          'รวม <span id="guide_total_show" style="font-size:1rem;color:#15803d;">0</span> คาบ' +
-        '</div>' +
-      '</div>';
+    // สร้างแผงควบคุมแยกในแต่ละ term container
+    ['1', '2'].forEach(function(term) {
+      var container = document.getElementById('guidanceContainer' + term);
+      if (!container) return;
 
-    container.parentNode.insertBefore(panel, container);
-    loadGuidanceAttendance().then(function() { setTimeout(onGuidanceSettingChange, 50); });
+      var hrName = App.hrMap[cls] || '';
+      var panel  = document.createElement('div');
+      panel.className = 'guide-dynamic-panel';
+      panel.id        = 'guide_panel_t' + term;
+      panel.innerHTML =
+        '<div style="background:#fff;border:1px solid #e9d5ff;border-radius:10px;padding:12px 14px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">' +
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<label style="font-weight:700;color:#7c3aed;margin:0;white-space:nowrap;font-size:.85rem;">👨\u200d🏫 ครูประจำชั้น</label>' +
+            '<input type="text" id="guidance_teacher_t' + term + '" value="' + hrName + '"' +
+            ' placeholder="ชื่อครู / ครู ก และ ครู ข"' +
+            ' style="width:220px;padding:5px 10px;border:1.5px solid #c4b5fd;border-radius:6px;font-weight:700;font-family:inherit;font-size:.85rem;"' +
+            ' oninput="App.hrMap[document.getElementById(\'gClass\').value.trim()]=this.value;">' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+            '<label style="font-weight:700;color:#0369a1;margin:0;font-size:.85rem;">วันเรียน</label>' +
+            '<select id="guide_day_t' + term + '" onchange="_renderGuidanceForTerm(\'' + term + '\')" style="padding:5px 8px;border-radius:6px;border:1.5px solid #bae6fd;font-weight:700;font-family:inherit;">' +
+              '<option value="1">จันทร์</option>' +
+              '<option value="2">อังคาร</option>' +
+              '<option value="3">พุธ</option>' +
+              '<option value="4">พฤหัสบดี</option>' +
+              '<option value="5" selected>ศุกร์</option>' +
+            '</select>' +
+          '</div>' +
+          '<div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:5px 14px;border-radius:50px;font-weight:700;font-size:.85rem;">' +
+            'รวม <span id="guide_total_t' + term + '" style="font-size:1rem;color:#15803d;">0</span> คาบ' +
+          '</div>' +
+        '</div>';
+      container.parentNode.insertBefore(panel, container);
+    });
+
+    // โหลด attendance แล้ว render ทั้ง 2 term
+    loadGuidanceAttendance().then(function() {
+      setTimeout(function() {
+        _renderGuidanceForTerm('1');
+        _renderGuidanceForTerm('2');
+      }, 50);
+    });
     return;
   }
 
-  App.guidanceDates = calcGuidanceDates();
-  var tot = document.getElementById('guide_total_show');
-  if (tot) tot.textContent = App.guidanceDates.length;
-  _buildGuidanceTable();
+  // recalculate: render term ที่ active อยู่
+  _renderGuidanceForTerm(App.guidanceActiveTerm || '1');
+}
+
+// ── render ตารางของ term ที่ระบุ ────────────────────────
+function _renderGuidanceForTerm(term) {
+  var container = document.getElementById('guidanceContainer' + term);
+  if (!container) return;
+
+  // คำนวณวันที่ของ term นั้น
+  var termEl = document.getElementById('guide_day_t' + term);
+  var dayOfWeek = termEl ? parseInt(termEl.value) : 5; // default ศุกร์
+
+  var startD = App.termDates['t' + term + '_start'];
+  var endD   = App.termDates['t' + term + '_end'];
+
+  var dates = [];
+  if (startD && endD) {
+    function parseD(str) {
+      var p = String(str).split(/[\/\-]/);
+      if (p.length !== 3) return new Date();
+      var y = parseInt(p[2]) > 2500 ? parseInt(p[2]) - 543 : parseInt(p[2]);
+      return new Date(y, parseInt(p[1]) - 1, parseInt(p[0]));
+    }
+    var hSet = new Set(
+      (App.holidays || []).filter(function(h) { return h.type === 'holiday'; }).map(function(h) { return h.date; })
+    );
+    var cur = parseD(startD), end = parseD(endD);
+    cur.setHours(0,0,0,0); end.setHours(0,0,0,0);
+    while (cur <= end) {
+      if (cur.getDay() === dayOfWeek) {
+        var dd = String(cur.getDate()).padStart(2,'0');
+        var mm = String(cur.getMonth()+1).padStart(2,'0');
+        var yy = cur.getFullYear() + 543;
+        var key = dd + '/' + mm + '/' + yy;
+        if (!hSet.has(key)) dates.push(key);
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+
+  // อัปเดต badge จำนวนคาบ
+  var totEl = document.getElementById('guide_total_t' + term);
+  if (totEl) totEl.textContent = dates.length;
+
+  // ถ้า term นี้เป็น active term ให้อัปเดต App.guidanceDates ด้วย
+  if (term === (App.guidanceActiveTerm || '1')) {
+    App.guidanceDates = dates;
+  }
+
+  _buildGuidanceTable(term, dates);
 }
 
 function onGuidanceSettingChange() {
-  App.guidanceDates = calcGuidanceDates();
-  var tot = document.getElementById('guide_total_show');
-  if (tot) tot.textContent = App.guidanceDates.length;
-  _buildGuidanceTable();
+  _renderGuidanceForTerm(App.guidanceActiveTerm || '1');
 }
 
-// ── ตาราง 2 ส่วน ──────────────────────────────────────
-function _buildGuidanceTable() {
-  var container = $('guidanceContainer');
+// ── ตาราง 2 ส่วน (รับ term + dates) ─────────────────────
+function _buildGuidanceTable(term, dates) {
+  var container = document.getElementById('guidanceContainer' + term);
   if (!container) return;
 
-  var dates  = App.guidanceDates;
   var nDates = dates.length;
   var MONTHS = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 
+  var savedTopics   = App.guidanceData[term] && App.guidanceData[term]._topics   ? App.guidanceData[term]._topics   : [];
+  var savedTeachers = App.guidanceData[term] && App.guidanceData[term]._teachers ? App.guidanceData[term]._teachers : [];
+
   // ส่วน 1: บันทึกกิจกรรม
-  var activityRows = dates.map(function(d, i) {
-    var tv = App.guidanceTopics[i]   || '';
-    var hv = App.guidanceTeachers[i] || (document.getElementById('guidance_teacher') || {}).value || '';
+  var actRows = dates.map(function(d, i) {
+    var tv = savedTopics[i]   || '';
+    var hv = savedTeachers[i] || (document.getElementById('guidance_teacher_t' + term) || {}).value || '';
     return '<tr>' +
-      '<td style="text-align:center;border:1px solid #e2e8f0;padding:5px;color:#94a3b8;font-size:.8rem;">' + (i + 1) + '</td>' +
+      '<td style="text-align:center;border:1px solid #e2e8f0;padding:5px;color:#94a3b8;font-size:.8rem;">' + (i+1) + '</td>' +
       '<td style="border:1px solid #e2e8f0;padding:4px 6px;text-align:center;font-size:.82rem;color:#6d28d9;white-space:nowrap;">' + shortThaiDate(d) + '</td>' +
       '<td style="border:1px solid #e2e8f0;padding:2px 4px;"><input type="text" class="guide-topic" data-idx="' + i + '" value="' + tv + '" placeholder="หัวข้อกิจกรรม..." style="width:100%;border:none;background:transparent;font-family:inherit;font-size:.84rem;padding:4px 6px;outline:none;"></td>' +
       '<td style="border:1px solid #e2e8f0;padding:2px 4px;"><input type="text" class="guide-teacher" data-idx="' + i + '" value="' + hv + '" placeholder="ครูผู้รับผิดชอบ..." style="width:100%;border:none;background:transparent;font-family:inherit;font-size:.84rem;padding:4px 6px;outline:none;"></td>' +
@@ -171,18 +240,20 @@ function _buildGuidanceTable() {
       '</div></th>';
   }).join('');
 
-  // ส่วน 2: แถวนักเรียน
+  // ส่วน 2: แถวนักเรียน (ดึงข้อมูลจาก App.guidanceData[term] หรือ App.guidanceAttMap)
   function attSt(v) {
-    if (v === 'ข') return { bg: '#fee2e2', cl: '#dc2626', lb: 'ข' };
-    if (v === 'ล') return { bg: '#fef3c7', cl: '#b45309', lb: 'ล' };
-    if (v === '-') return { bg: '#f8fafc', cl: '#94a3b8', lb: '-' };
-    return { bg: '#f0fdf4', cl: '#166534', lb: '✓' };
+    if (v==='ข') return {bg:'#fee2e2',cl:'#dc2626',lb:'ข'};
+    if (v==='ล') return {bg:'#fef3c7',cl:'#b45309',lb:'ล'};
+    if (v==='-') return {bg:'#f8fafc',cl:'#94a3b8',lb:'-'};
+    return {bg:'#f0fdf4',cl:'#166534',lb:'✓'};
   }
 
   var bodyRows = App.students.map(function(s, idx) {
-    var saved = s.guidance_data || {};
-    var att;
+    // ลำดับความสำคัญ: App.guidanceData[term] > guidance_data จาก API > guidanceAttMap
+    var saved = (App.guidanceData[term] && App.guidanceData[term][s.studentId])
+      || s.guidance_data || {};
 
+    var att;
     if (saved.attArray && Array.isArray(saved.attArray) && saved.attArray.length > 0) {
       att = saved.attArray.slice();
       while (att.length < nDates) att.push('ป');
@@ -190,61 +261,60 @@ function _buildGuidanceTable() {
       var sbd = App.guidanceAttMap[s.studentId] || {};
       att = dates.map(function(ds) {
         var r = String(sbd[ds] || '').trim();
-        if (r === 'ข') return 'ข';
-        if (r === 'ล' || r === 'ป') return 'ล';
+        if (r==='ข') return 'ข';
+        if (r==='ล'||r==='ป') return 'ล';
         return 'ป';
       });
     }
 
-    var nP    = att.filter(function(v) { return v === 'ป'; }).length;
-    var nBase = att.filter(function(v) { return v !== '-'; }).length;
-    var res   = saved.result || (nBase > 0 && nP >= Math.ceil(nBase * 0.8) ? 'ผ่าน' : 'ไม่ผ่าน');
-    var rCl   = res === 'ผ่าน' ? '#16a34a' : '#dc2626';
-    var rBg   = res === 'ผ่าน' ? '#dcfce7' : '#fee2e2';
-    var rBd   = res === 'ผ่าน' ? '#86efac' : '#fca5a5';
+    var nP    = att.filter(function(v){return v==='ป';}).length;
+    var nBase = att.filter(function(v){return v!=='-';}).length;
+    var res   = saved.result || (nBase>0 && nP>=Math.ceil(nBase*0.8) ? 'ผ่าน' : 'ไม่ผ่าน');
+    var rCl   = res==='ผ่าน'?'#16a34a':'#dc2626';
+    var rBg   = res==='ผ่าน'?'#dcfce7':'#fee2e2';
+    var rBd   = res==='ผ่าน'?'#86efac':'#fca5a5';
 
-    var cells = dates.map(function(d, i) {
-      var v = att[i] !== undefined ? att[i] : 'ป';
+    var cells = dates.map(function(d,i) {
+      var v = att[i]!==undefined ? att[i] : 'ป';
       var st = attSt(v);
-      return '<td class="guide-day-cell" data-idx="' + i + '" data-flag="' + v + '" onclick="cycleGuidanceDay(this)"' +
+      return '<td class="guide-day-cell" data-term="' + term + '" data-idx="' + i + '" data-flag="' + v + '" onclick="cycleGuidanceDay(this)"' +
         ' style="width:22px;min-width:22px;text-align:center;cursor:pointer;border:1px solid #e2e8f0;padding:2px 0;font-size:12px;font-weight:700;background:' + st.bg + ';color:' + st.cl + ';user-select:none;transition:background .1s;">' +
         st.lb + '</td>';
     }).join('');
 
-    return '<tr data-guidesid="' + s.studentId + '">' +
-      '<td style="text-align:center;border:1px solid #e2e8f0;padding:4px;position:sticky;left:0;z-index:10;background:#fff;font-size:.78rem;color:#94a3b8;min-width:30px;">' + (idx + 1) + '</td>' +
+    return '<tr data-guidesid="' + s.studentId + '" data-term="' + term + '">' +
+      '<td style="text-align:center;border:1px solid #e2e8f0;padding:4px;position:sticky;left:0;z-index:10;background:#fff;font-size:.78rem;color:#94a3b8;min-width:30px;">' + (idx+1) + '</td>' +
       '<td class="ass-name" style="text-align:left;border:1px solid #e2e8f0;padding:5px 8px;position:sticky;left:30px;z-index:10;background:#fff;white-space:nowrap;font-weight:600;min-width:180px;border-right:2px solid #c4b5fd;">' + s.name + '</td>' +
       cells +
       '<td class="guide-total-val" style="text-align:center;font-weight:700;color:#0369a1;background:#eff6ff;border:1px solid #e2e8f0;padding:4px 6px;white-space:nowrap;min-width:48px;">' + nP + '/' + nBase + '</td>' +
       '<td style="text-align:center;border:1px solid #e2e8f0;padding:3px 4px;">' +
-        '<select class="guide-result sinput" style="width:88px;padding:3px 4px;font-size:.78rem;font-weight:700;background:' + rBg + ';color:' + rCl + ';border:1.5px solid ' + rBd + ';border-radius:6px;font-family:inherit;"' +
+        '<select class="guide-result sinput" data-term="' + term + '"' +
+        ' style="width:88px;padding:3px 4px;font-size:.78rem;font-weight:700;background:' + rBg + ';color:' + rCl + ';border:1.5px solid ' + rBd + ';border-radius:6px;font-family:inherit;"' +
         ' onchange="this.style.background=this.value===\'ผ่าน\'?\'#dcfce7\':\'#fee2e2\';this.style.color=this.value===\'ผ่าน\'?\'#16a34a\':\'#dc2626\';this.style.borderColor=this.value===\'ผ่าน\'?\'#86efac\':\'#fca5a5\';">' +
-          '<option value="ผ่าน"'    + (res === 'ผ่าน'    ? ' selected' : '') + '>ผ่าน</option>' +
-          '<option value="ไม่ผ่าน"' + (res === 'ไม่ผ่าน' ? ' selected' : '') + '>ไม่ผ่าน</option>' +
+          '<option value="ผ่าน"'    + (res==='ผ่าน'   ?' selected':'') + '>ผ่าน</option>' +
+          '<option value="ไม่ผ่าน"' + (res==='ไม่ผ่าน'?' selected':'') + '>ไม่ผ่าน</option>' +
         '</select>' +
       '</td>' +
     '</tr>';
   }).join('');
 
+  // ── body ID แยกตาม term ─────────────────────────────
+  var bodyId = 'guidanceBody_t' + term;
+
   container.innerHTML =
     '<div style="margin-bottom:16px;">' +
-      '<div style="font-weight:700;font-size:.88rem;color:#7c3aed;padding:8px 12px;background:#f5f3ff;border-radius:8px 8px 0 0;border:1px solid #e9d5ff;border-bottom:none;">📋 บันทึกกิจกรรมแนะแนว (' + nDates + ' ครั้ง)</div>' +
-      '<div style="border:1px solid #e9d5ff;border-radius:0 0 8px 8px;overflow:auto;max-height:280px;">' +
+      '<div style="font-weight:700;font-size:.88rem;color:#7c3aed;padding:8px 12px;background:#f5f3ff;border-radius:8px 8px 0 0;border:1px solid #e9d5ff;border-bottom:none;">📋 บันทึกกิจกรรมแนะแนว เทอม ' + term + ' (' + nDates + ' ครั้ง)</div>' +
+      '<div style="border:1px solid #e9d5ff;border-radius:0 0 8px 8px;overflow:auto;max-height:260px;">' +
         '<table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:500px;">' +
           '<thead style="position:sticky;top:0;z-index:10;background:#fdf4ff;">' +
-            '<tr>' +
-              '<th style="width:40px;border:1px solid #e2e8f0;padding:7px 4px;">ครั้งที่</th>' +
-              '<th style="width:90px;border:1px solid #e2e8f0;padding:7px 4px;">วันที่</th>' +
-              '<th style="border:1px solid #e2e8f0;padding:7px 8px;text-align:left;">หัวข้อกิจกรรม</th>' +
-              '<th style="width:200px;border:1px solid #e2e8f0;padding:7px 8px;text-align:left;">ครูผู้รับผิดชอบ</th>' +
-            '</tr>' +
+            '<tr><th style="width:40px;border:1px solid #e2e8f0;padding:7px 4px;">ครั้งที่</th><th style="width:90px;border:1px solid #e2e8f0;padding:7px 4px;">วันที่</th><th style="border:1px solid #e2e8f0;padding:7px 8px;text-align:left;">หัวข้อกิจกรรม</th><th style="width:200px;border:1px solid #e2e8f0;padding:7px 8px;text-align:left;">ครูผู้รับผิดชอบ</th></tr>' +
           '</thead>' +
-          '<tbody>' + activityRows + '</tbody>' +
+          '<tbody>' + actRows + '</tbody>' +
         '</table>' +
       '</div>' +
     '</div>' +
     '<div>' +
-      '<div style="font-weight:700;font-size:.88rem;color:#0369a1;padding:8px 12px;background:#eff6ff;border-radius:8px 8px 0 0;border:1px solid #bae6fd;border-bottom:none;">✅ ตารางการเข้าร่วมกิจกรรม <span style="font-size:.75rem;font-weight:400;color:#64748b;margin-left:8px;">(คลิกช่องเพื่อเปลี่ยน: ✓มา → ขขาด → ลลา → วนซ้ำ)</span></div>' +
+      '<div style="font-weight:700;font-size:.88rem;color:#0369a1;padding:8px 12px;background:#eff6ff;border-radius:8px 8px 0 0;border:1px solid #bae6fd;border-bottom:none;">✅ ตารางการเข้าร่วม เทอม ' + term + ' <span style="font-size:.75rem;font-weight:400;color:#64748b;margin-left:8px;">(คลิก: ✓มา → ขขาด → ลลา)</span></div>' +
       '<div style="border:1px solid #bae6fd;border-radius:0 0 8px 8px;overflow:auto;max-height:55vh;">' +
         '<table style="border-collapse:collapse;font-size:.84rem;width:max-content;min-width:100%;">' +
           '<thead style="position:sticky;top:0;z-index:20;background:#f0f9ff;">' +
@@ -257,7 +327,7 @@ function _buildGuidanceTable() {
             '</tr>' +
             '<tr style="height:90px;">' + dateHeaders + '</tr>' +
           '</thead>' +
-          '<tbody id="guidanceBody">' + bodyRows + '</tbody>' +
+          '<tbody id="' + bodyId + '">' + bodyRows + '</tbody>' +
         '</table>' +
       '</div>' +
     '</div>';
@@ -301,48 +371,58 @@ function cycleGuidanceDay(cell) {
   }
 }
 
-// ── บันทึกข้อมูล ──────────────────────────────────────
-async function saveGuidanceData() {
-  var topics   = [...document.querySelectorAll('.guide-topic')].map(function(i) { return i.value; });
-  var teachers = [...document.querySelectorAll('.guide-teacher')].map(function(i) { return i.value; });
-  App.guidanceTopics   = topics;
-  App.guidanceTeachers = teachers;
+// ── บันทึกข้อมูล (term = '1' หรือ '2') ──────────────────
+async function saveGuidanceData(term) {
+  term = term || App.guidanceActiveTerm || '1';
 
-  var rows = $$('#guidanceBody tr[data-guidesid]');
-  if (!rows.length) return Utils.toast('ไม่พบข้อมูล', 'error');
+  var bodyId   = 'guidanceBody_t' + term;
+  var rows     = $$(  '#' + bodyId + ' tr[data-guidesid]');
+  if (!rows.length) return Utils.toast('ไม่พบข้อมูล เทอม ' + term, 'error');
+
+  // อ่าน topics + teachers จาก container ของ term นี้
+  var container = document.getElementById('guidanceContainer' + term);
+  var topics   = container ? [...container.querySelectorAll('.guide-topic')].map(function(i){return i.value;})   : [];
+  var teachers = container ? [...container.querySelectorAll('.guide-teacher')].map(function(i){return i.value;}) : [];
 
   var records = [...rows].map(function(tr) {
-    var flags = [...tr.querySelectorAll('.guide-day-cell')].map(function(c) { return c.getAttribute('data-flag') || 'ป'; });
+    var flags = [...tr.querySelectorAll('.guide-day-cell')].map(function(c){return c.getAttribute('data-flag')||'ป';});
+    var nP = flags.filter(function(f){return f==='ป';}).length;
     return {
       studentId : tr.getAttribute('data-guidesid'),
       attArray  : flags,
-      attended  : flags.filter(function(f) { return f === 'ป'; }).length,
+      attended  : nP,
       result    : tr.querySelector('.guide-result').value
     };
   });
 
-  Utils.showLoading('กำลังบันทึกแนะแนว...');
+  // บันทึกใน App.guidanceData ด้วยเพื่อ persist ขณะยังอยู่หน้าเดิม
+  if (!App.guidanceData[term]) App.guidanceData[term] = {};
+  App.guidanceData[term]._topics   = topics;
+  App.guidanceData[term]._teachers = teachers;
+  records.forEach(function(r) { App.guidanceData[term][r.studentId] = r; });
+
+  Utils.showLoading('กำลังบันทึกแนะแนว เทอม ' + term + '...');
   try {
     await api('saveGuidance', {
       year      : $('gYear').value,
       classroom : $('gClass').value,
-      subject   : $('gSubj').value,
-      maxTime   : App.guidanceDates.length,
-      teacher   : (document.getElementById('guidance_teacher') || {}).value || '',
+      term      : term,
+      maxTime   : (App.termDates['t'+term+'_start'] ? rows.length : 0),
+      teacher   : (document.getElementById('guidance_teacher_t'+term)||{}).value || '',
       topics    : topics,
       records   : records
     });
-    Utils.toast('✅ บันทึกกิจกรรมแนะแนวสำเร็จ');
+    Utils.toast('✅ บันทึกกิจกรรมแนะแนว เทอม ' + term + ' สำเร็จ');
   } catch (e) { Utils.toast(e.message, 'error'); }
   Utils.hideLoading();
 }
 
 // ── พิมพ์รายงาน ────────────────────────────────────────
-function printGuidanceReport() {
-  var cls          = $('gClass').value;
-  var year         = $('gYear').value;
-  var term         = (document.getElementById('guide_term') || {}).value || '1';
-  var clsName      = cls.split('เทอม')[0].trim();
+function printGuidanceReport(term) {
+  term = term || App.guidanceActiveTerm || '1';
+  var cls     = $('gClass').value;
+  var year    = $('gYear').value;
+  var clsName = cls.split('เทอม')[0].trim();
   var evalHeadName = 'นางสาวกิตติญา สินทม';
   var directorName = 'นางปราณี วาดเขียน';
   var schoolName   = 'โรงเรียนบ้านคลอง ๑๔';
@@ -350,14 +430,15 @@ function printGuidanceReport() {
   var rawTeacher = ((document.getElementById('guidance_teacher') || {}).value || '').trim() || '........................................................';
   var teachers   = rawTeacher.split(/\s*(?:และ|\/|,)\s*/).filter(function(t) { return t; });
 
-  var topics_   = [...document.querySelectorAll('.guide-topic')].map(function(i) { return i.value; });
-  var teachers_ = [...document.querySelectorAll('.guide-teacher')].map(function(i) { return i.value; });
+  var _cont    = document.getElementById('guidanceContainer' + term) || document;
+  var topics_   = [..._cont.querySelectorAll('.guide-topic')].map(function(i) { return i.value; });
+  var teachers_ = [..._cont.querySelectorAll('.guide-teacher')].map(function(i) { return i.value; });
   var nDates    = App.guidanceDates.length;
   var dispCols  = Math.max(20, nDates);
   var MONTHS    = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   var MONTHS_S  = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 
-  var rows = [...$$('#guidanceBody tr[data-guidesid]')].map(function(tr, i) {
+  var rows = [...$$(  '#guidanceBody_t'+term+' tr[data-guidesid]')].map(function(tr, i) {
     return {
       no      : i + 1,
       name    : tr.querySelector('.ass-name').textContent.trim(),
