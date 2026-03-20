@@ -465,7 +465,7 @@ function printGuidanceReport() {
     var teachers_ = [..._cont.querySelectorAll('.guide-teacher')].map(function(i) { return i.value; });
     var termDates = App['guidanceDates' + t] || [];
     var nDates    = termDates.length;
-    var dispCols  = Math.max(20, nDates);
+    var dispCols  = nDates; // ใช้จำนวนจริง ไม่ pad
 
     var rawTeacher = ((document.getElementById('guidance_teacher_t' + t) || {}).value || '').trim()
       || '........................................................';
@@ -521,12 +521,13 @@ function printGuidanceReport() {
       '</tr>';
     }).join('');
 
-    var actRows = Array(dispCols).fill(0).map(function(_, i) {
+    var actRowCount = Math.max(nDates, 20); // pad ถึง 20 แถวสำหรับหน้าบันทึก
+    var actRows = Array(actRowCount).fill(0).map(function(_, i) {
       return '<tr>' +
-        '<td style="height:28px;">' + (i + 1) + '</td>' +
-        '<td style="font-size:13px;">' + (termDates[i] ? fmtD(termDates[i]) : '') + '</td>' +
-        '<td style="text-align:left;padding-left:10px;font-size:13px;">' + (topics_[i] || '') + '</td>' +
-        '<td style="font-size:13px;">' + (teachers_[i] || teachers[0] || '') + '</td>' +
+        '<td style="height:26px;">' + (i + 1) + '</td>' +
+        '<td style="font-size:12px;">' + (termDates[i] ? fmtD(termDates[i]) : '') + '</td>' +
+        '<td style="text-align:left;padding-left:8px;font-size:12px;">' + (topics_[i] || '') + '</td>' +
+        '<td style="font-size:12px;">' + (teachers_[i] || teachers[0] || '') + '</td>' +
       '</tr>';
     }).join('');
 
@@ -616,7 +617,7 @@ function printGuidanceReport() {
 
   var css =
     '@page{size:A4 portrait;margin:12mm;}' +
-    '@page att{size:A4 landscape;margin:8mm;}' +
+    '@page att{size:A4 landscape;margin:6mm 7mm;}' +
     'body{font-family:\'Sarabun\',sans-serif;font-size:14px;color:#000;margin:0;line-height:1.35;}' +
     '.page{page-break-after:always;min-height:260mm;padding:8px 18px;}' +
     '.att-page{page-break-after:always;page:att;padding:6px 10px;}' +
@@ -629,14 +630,14 @@ function printGuidanceReport() {
     '.rc{display:inline-block;width:13px;height:13px;border:1.5px solid #000;border-radius:50%;vertical-align:middle;margin-right:5px;}' +
     '.sf{display:flex;justify-content:space-around;flex-wrap:wrap;margin-top:14px;gap:8px;}' +
     '.rh{border:1px solid #000;border-radius:8px;padding:8px;width:65%;margin:0 auto 10px;text-align:center;font-size:15px;font-weight:bold;}' +
-    '.att-tbl{font-size:10px;table-layout:fixed;width:100%;}' +
-    '.att-tbl th,.att-tbl td{border:1px solid #000;padding:1px 0;text-align:center;overflow:hidden;}' +
-    '.att-tbl .col-no{width:22px;}' +
-    '.att-tbl .col-name{width:130px;text-align:left !important;padding-left:4px;white-space:nowrap;}' +
-    '.att-tbl .col-date{width:16px;}' +
-    '.att-tbl .col-sum{width:24px;font-weight:bold;}' +
-    '.att-tbl .col-pass{width:22px;}' +
-    '.att-tbl .v-date{writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;color:#c00;height:80px;padding:2px 0;}';
+    '.att-tbl{font-size:9.5px;table-layout:fixed;width:100%;border-collapse:collapse;}' +
+    '.att-tbl th,.att-tbl td{border:1px solid #000;padding:0;text-align:center;overflow:hidden;line-height:1.2;}' +
+    '.att-tbl .col-no{width:18px;min-width:18px;}' +
+    '.att-tbl .col-name{width:120px;min-width:120px;text-align:left !important;padding-left:3px;white-space:nowrap;overflow:hidden;}' +
+    '.att-tbl .col-date{width:14px;min-width:14px;max-width:14px;}' +
+    '.att-tbl .col-sum{width:20px;min-width:20px;font-weight:bold;}' +
+    '.att-tbl .col-pass{width:20px;min-width:20px;}' +
+    '.att-tbl .v-date{writing-mode:vertical-rl;transform:rotate(180deg);font-size:8.5px;color:#c00;height:70px;white-space:nowrap;display:block;}';
 
   var html =
     '<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">' +
