@@ -85,11 +85,14 @@ function switchGuidanceTab(term, btn) {
   if (p1) p1.style.display = term === '1' ? '' : 'none';
   if (p2) p2.style.display = term === '2' ? '' : 'none';
 
-  // sync วันเรียนจาก _day ที่บันทึกไว้ของ term นี้
-  var savedDay = App.guidanceData && App.guidanceData[term] && App.guidanceData[term]._day;
-  if (savedDay) {
+  // sync วันเรียนจาก DB เฉพาะครั้งแรกที่ยังไม่เคย sync (flag _dayLoaded)
+  var gd = App.guidanceData && App.guidanceData[term];
+  if (gd && gd._day && !gd._dayLoaded) {
     var sel = document.getElementById('guide_day_t' + term);
-    if (sel) sel.value = savedDay;
+    if (sel) {
+      sel.value = gd._day;
+      gd._dayLoaded = true; // mark ว่า sync แล้ว ไม่ override อีก
+    }
   }
 
   if (App.students && App.students.length) {
@@ -151,11 +154,18 @@ function renderGuidanceTable(isRecalculating) {
     // โหลด attendance แล้ว render ทั้ง 2 term
     loadGuidanceAttendance().then(function() {
       setTimeout(function() {
-        // pre-fill teacher input จากข้อมูลที่บันทึกไว้
+        // pre-fill teacher + วันเรียน จากข้อมูลที่บันทึกไว้ (ครั้งแรกเท่านั้น)
         ['1','2'].forEach(function(t) {
+          var gd = App.guidanceData && App.guidanceData[t];
           var inp = document.getElementById('guidance_teacher_t' + t);
-          var saved = App.guidanceData && App.guidanceData[t] && App.guidanceData[t]._teacher;
-          if (inp && saved) inp.value = saved;
+          if (inp && gd && gd._teacher) inp.value = gd._teacher;
+
+          // sync วันเรียนที่บันทึกไว้เข้า select (ครั้งแรก)
+          var sel = document.getElementById('guide_day_t' + t);
+          if (sel && gd && gd._day) {
+            sel.value = gd._day;
+            gd._dayLoaded = true; // mark แล้ว ไม่ override อีก
+          }
         });
         _renderGuidanceForTerm('1');
         _renderGuidanceForTerm('2');
@@ -173,15 +183,14 @@ function _renderGuidanceForTerm(term) {
   var container = document.getElementById('guidanceContainer' + term);
   if (!container) return;
 
-  // คำนวณวันที่ของ term นั้น
-  // ลำดับความสำคัญ: saved _day > select element > default ศุกร์
-  var savedDay  = App.guidanceData && App.guidanceData[term] && App.guidanceData[term]._day;
+  // อ่านวันเรียนจาก select โดยตรง (user เลือกได้เองได้เสมอ)
   var termEl    = document.getElementById('guide_day_t' + term);
+  var dayOfWeek = termEl ? parseInt(termEl.value) : 5;
 
-  // ถ้ามีค่า saved ให้ sync เข้า select ก่อนอ่าน
-  if (savedDay && termEl) termEl.value = savedDay;
-
-  var dayOfWeek = termEl ? parseInt(termEl.value) : (savedDay ? parseInt(savedDay) : 5);
+  // บันทึก dayOfWeek ปัจจุบันกลับเข้า App.guidanceData เพื่อ persist ขณะอยู่หน้าเดิม
+  if (App.guidanceData && App.guidanceData[term]) {
+    App.guidanceData[term]._day = String(dayOfWeek);
+  }
 
   var startD = App.termDates['t' + term + '_start'];
   var endD   = App.termDates['t' + term + '_end'];
