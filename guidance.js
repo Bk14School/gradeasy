@@ -219,7 +219,8 @@ function _renderGuidanceForTerm(term) {
   var totEl = document.getElementById('guide_total_t' + term);
   if (totEl) totEl.textContent = dates.length;
 
-  // ถ้า term นี้เป็น active term ให้อัปเดต App.guidanceDates ด้วย
+  // เก็บ dates แยกตาม term เสมอ + sync App.guidanceDates ถ้าเป็น active term
+  App['guidanceDates' + term] = dates;
   if (term === (App.guidanceActiveTerm || '1')) {
     App.guidanceDates = dates;
   }
@@ -447,153 +448,211 @@ async function saveGuidanceData(term) {
 }
 
 // ── พิมพ์รายงาน ────────────────────────────────────────
-function printGuidanceReport(term) {
-  term = term || App.guidanceActiveTerm || '1';
-  var cls     = $('gClass').value;
-  var year    = $('gYear').value;
-  var clsName = cls.split('เทอม')[0].trim();
+function printGuidanceReport() {
+  var cls          = $('gClass').value;
+  var year         = $('gYear').value;
+  var clsName      = cls.split('เทอม')[0].trim();
   var evalHeadName = 'นางสาวกิตติญา สินทม';
   var directorName = 'นางปราณี วาดเขียน';
   var schoolName   = 'โรงเรียนบ้านคลอง ๑๔';
+  var MONTHS   = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  var MONTHS_S = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 
-  var rawTeacher = ((document.getElementById('guidance_teacher') || {}).value || '').trim() || '........................................................';
-  var teachers   = rawTeacher.split(/\s*(?:และ|\/|,)\s*/).filter(function(t) { return t; });
+  // ── helper: ดึงข้อมูล + สร้าง HTML ของ 1 เทอม ──────────
+  function buildTermPages(t) {
+    var _cont     = document.getElementById('guidanceContainer' + t) || document;
+    var topics_   = [..._cont.querySelectorAll('.guide-topic')].map(function(i)   { return i.value; });
+    var teachers_ = [..._cont.querySelectorAll('.guide-teacher')].map(function(i) { return i.value; });
+    var termDates = App['guidanceDates' + t] || [];
+    var nDates    = termDates.length;
+    var dispCols  = Math.max(20, nDates);
 
-  var _cont    = document.getElementById('guidanceContainer' + term) || document;
-  var topics_   = [..._cont.querySelectorAll('.guide-topic')].map(function(i) { return i.value; });
-  var teachers_ = [..._cont.querySelectorAll('.guide-teacher')].map(function(i) { return i.value; });
-  var nDates    = App.guidanceDates.length;
-  var dispCols  = Math.max(20, nDates);
-  var MONTHS    = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  var MONTHS_S  = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    var rawTeacher = ((document.getElementById('guidance_teacher_t' + t) || {}).value || '').trim()
+      || '........................................................';
+    var teachers = rawTeacher.split(/\s*(?:และ|\/|,)\s*/).filter(function(x) { return x; });
 
-  var rows = [...$$(  '#guidanceBody_t'+term+' tr[data-guidesid]')].map(function(tr, i) {
-    return {
-      no      : i + 1,
-      name    : tr.querySelector('.ass-name').textContent.trim(),
-      atts    : [...tr.querySelectorAll('.guide-day-cell')].map(function(c) { return c.getAttribute('data-flag') || 'ป'; }),
-      attended: [...tr.querySelectorAll('.guide-day-cell')].filter(function(c) { return c.getAttribute('data-flag') === 'ป'; }).length,
-      result  : tr.querySelector('.guide-result').value
-    };
-  });
-  if (!rows.length) return Utils.toast('ไม่พบข้อมูล', 'error');
+    var rows = [...$$('#guidanceBody_t' + t + ' tr[data-guidesid]')].map(function(tr, i) {
+      return {
+        no      : i + 1,
+        name    : tr.querySelector('.ass-name').textContent.trim(),
+        atts    : [...tr.querySelectorAll('.guide-day-cell')].map(function(c) { return c.getAttribute('data-flag') || 'ป'; }),
+        attended: [...tr.querySelectorAll('.guide-day-cell')].filter(function(c) { return c.getAttribute('data-flag') === 'ป'; }).length,
+        result  : tr.querySelector('.guide-result').value
+      };
+    });
 
-  var passCount = rows.filter(function(r) { return r.result === 'ผ่าน'; }).length;
-  var failCount = rows.length - passCount;
+    if (!rows.length) return ''; // เทอมนี้ยังไม่มีข้อมูล ข้ามไป
 
-  function fmtD(dStr) {
-    var p = dStr.split('/');
-    if (p.length !== 3) return dStr;
-    return parseInt(p[0]) + MONTHS_S[parseInt(p[1]) - 1] + p[2].slice(-2);
-  }
+    var passCount = rows.filter(function(r) { return r.result === 'ผ่าน'; }).length;
+    var failCount = rows.length - passCount;
 
-  var attDateHeaders = Array(dispCols).fill(0).map(function(_, i) {
-    var dStr = App.guidanceDates[i];
-    if (!dStr) return '<th style="width:18px;border:1px solid #000;"></th>';
-    var p = dStr.split('/');
-    return '<th style="width:18px;vertical-align:bottom;padding-bottom:4px;border:1px solid #000;">' +
-      '<div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;color:red;font-weight:normal;">' +
+    function fmtD(dStr) {
+      var p = dStr.split('/');
+      if (p.length !== 3) return dStr;
+      return parseInt(p[0]) + MONTHS_S[parseInt(p[1]) - 1] + p[2].slice(-2);
+    }
+
+    var attDateHeaders = Array(dispCols).fill(0).map(function(_, i) {
+      var dStr = termDates[i];
+      if (!dStr) return '<th class="col-date"></th>';
+      var p = dStr.split('/');
+      return '<th class="col-date"><div class="v-date">' +
         parseInt(p[0]) + ' ' + MONTHS[parseInt(p[1])] + ' ' + p[2].slice(-2) +
       '</div></th>';
-  }).join('');
-
-  var attRows = rows.map(function(r) {
-    var cells = Array(dispCols).fill(0).map(function(_, i) {
-      if (i >= nDates) return '<td style="border:1px solid #000;"></td>';
-      var v = r.atts[i] || 'ป';
-      var lb = v === 'ป' ? '<span style="color:#166534;font-weight:bold;">/</span>'
-             : v === 'ข' ? '<span style="color:#dc2626;font-weight:bold;">ข</span>'
-             : v === 'ล' ? '<span style="color:#ca8a04;font-weight:bold;">ล</span>'
-             :             '<span style="color:#94a3b8;">-</span>';
-      return '<td style="text-align:center;border:1px solid #000;">' + lb + '</td>';
     }).join('');
-    return '<tr>' +
-      '<td style="text-align:center;border:1px solid #000;">' + r.no + '</td>' +
-      '<td style="text-align:left;padding-left:6px;border:1px solid #000;white-space:nowrap;">' + r.name + '</td>' +
-      cells +
-      '<td style="text-align:center;font-weight:bold;border:1px solid #000;">' + r.attended + '</td>' +
-      '<td style="text-align:center;font-weight:bold;color:#166534;border:1px solid #000;">' + (r.result === 'ผ่าน' ? '✓' : '') + '</td>' +
-      '<td style="text-align:center;font-weight:bold;color:#dc2626;border:1px solid #000;">' + (r.result !== 'ผ่าน' ? '✓' : '') + '</td>' +
-    '</tr>';
-  }).join('');
 
-  var actRows = Array(dispCols).fill(0).map(function(_, i) {
-    return '<tr>' +
-      '<td style="height:28px;">' + (i + 1) + '</td>' +
-      '<td style="font-size:13px;">' + (App.guidanceDates[i] ? fmtD(App.guidanceDates[i]) : '') + '</td>' +
-      '<td style="text-align:left;padding-left:10px;font-size:13px;">' + (topics_[i] || '') + '</td>' +
-      '<td style="font-size:13px;">' + (teachers_[i] || teachers[0] || '') + '</td>' +
-    '</tr>';
-  }).join('');
+    var attRows = rows.map(function(r) {
+      var cells = Array(dispCols).fill(0).map(function(_, i) {
+        if (i >= nDates) return '<td style="border:1px solid #000;"></td>';
+        var v  = r.atts[i] || 'ป';
+        var lb = v === 'ป' ? '<span style="color:#166534;font-weight:bold;">/</span>'
+               : v === 'ข' ? '<span style="color:#dc2626;font-weight:bold;">ข</span>'
+               : v === 'ล' ? '<span style="color:#ca8a04;font-weight:bold;">ล</span>'
+               :             '<span style="color:#94a3b8;">-</span>';
+        return '<td style="text-align:center;border:1px solid #000;">' + lb + '</td>';
+      }).join('');
+      return '<tr>' +
+        '<td style="text-align:center;border:1px solid #000;">' + r.no + '</td>' +
+        '<td style="text-align:left;padding-left:6px;border:1px solid #000;white-space:nowrap;">' + r.name + '</td>' +
+        cells +
+        '<td style="text-align:center;font-weight:bold;border:1px solid #000;">' + r.attended + '</td>' +
+        '<td style="text-align:center;font-weight:bold;color:#166534;border:1px solid #000;">' + (r.result === 'ผ่าน' ? '✓' : '') + '</td>' +
+        '<td style="text-align:center;font-weight:bold;color:#dc2626;border:1px solid #000;">' + (r.result !== 'ผ่าน' ? '✓' : '') + '</td>' +
+      '</tr>';
+    }).join('');
 
-  var signLines = teachers.map(function(t) {
-    return '<div style="text-align:center;min-width:220px;">ลงชื่อ.......................................ครูประจำชั้น<br><div style="margin-top:8px;">( ' + t + ' )</div></div>';
-  }).join('');
+    var actRows = Array(dispCols).fill(0).map(function(_, i) {
+      return '<tr>' +
+        '<td style="height:28px;">' + (i + 1) + '</td>' +
+        '<td style="font-size:13px;">' + (termDates[i] ? fmtD(termDates[i]) : '') + '</td>' +
+        '<td style="text-align:left;padding-left:10px;font-size:13px;">' + (topics_[i] || '') + '</td>' +
+        '<td style="font-size:13px;">' + (teachers_[i] || teachers[0] || '') + '</td>' +
+      '</tr>';
+    }).join('');
+
+    var signLines = teachers.map(function(x) {
+      return '<div style="text-align:center;min-width:220px;">ลงชื่อ.......................................ครูประจำชั้น<br><div style="margin-top:8px;">( ' + x + ' )</div></div>';
+    }).join('');
+
+    // ── ปก (เทอม t) ──
+    var pageCover =
+      '<div class="page">' +
+        '<div class="tc"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg/1200px-The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg.png" style="width:75px;margin-bottom:8px;"></div>' +
+        '<div class="cover-box"><div style="font-size:22px;font-weight:bold;">แบบบันทึกผลกิจกรรมแนะแนว</div>' +
+        '<div style="font-size:16px;font-weight:bold;margin-top:6px;">ระดับชั้น <u>' + clsName + '</u> &nbsp; ภาคเรียนที่ <u>' + t + '</u></div></div>' +
+        '<div class="tc" style="font-size:14px;line-height:1.8;">หลักสูตรการศึกษาขั้นพื้นฐาน ระดับชั้น <u>' + clsName + '</u> ภาคเรียนที่ <u>' + t + '</u> ปีการศึกษา <u>' + year + '</u><br>' + schoolName + '<br>' +
+        'ครูประจำชั้น <span style="border-bottom:1.5px dotted #000;display:inline-block;min-width:280px;">' + teachers.join(' และ ') + '</span></div>' +
+        '<table class="st"><tr><td rowspan="2" style="width:25%;">นักเรียนทั้งหมด</td><td colspan="2">จำนวนนักเรียน</td><td rowspan="2" style="width:30%;">หมายเหตุ</td></tr><tr><td>ผ่าน</td><td>ไม่ผ่าน</td></tr>' +
+        '<tr><td style="padding:12px 0;">' + rows.length + '</td><td>' + passCount + '</td><td>' + failCount + '</td><td></td></tr></table>' +
+        '<div class="appr"><div style="font-size:16px;font-weight:bold;margin-bottom:12px;">การอนุมัติผลการเรียน</div><div class="sf">' + signLines + '</div>' +
+        '<div style="margin-top:14px;">ลงชื่อ...............................................หัวหน้ากิจกรรมพัฒนาผู้เรียน<br><span style="margin-left:40px;">(...............................................)</span></div>' +
+        '<div style="margin-top:10px;">ลงชื่อ...............................................หัวหน้างานวัดผลและประเมินผล<br><span style="margin-left:40px;">( ' + evalHeadName + ' )</span></div>' +
+        '<div style="margin-top:16px;text-align:center;"><div style="font-weight:bold;">เรียน เสนอเพื่อพิจารณาอนุมัติผลการเรียน</div>' +
+        '<div style="display:flex;justify-content:center;gap:50px;margin:12px 0;"><span><span class="rc"></span> อนุมัติ</span><span><span class="rc"></span> ไม่อนุมัติ</span></div>' +
+        'ลงชื่อ....................................................................<br>' +
+        '<div style="margin-top:8px;">' + directorName + '</div><div>ผู้อำนวยการ' + schoolName + '</div></div></div>' +
+      '</div>';
+
+    // ── รายชื่อ ──
+    var pageRoster =
+      '<div class="page">' +
+        '<div class="rh">กิจกรรมแนะแนว ระดับชั้น ' + clsName + ' ภาคเรียนที่ ' + t + '</div>' +
+        '<div style="margin-left:15%;font-size:14px;margin-bottom:6px;">จำนวนนักเรียน..........' + rows.length + '..........คน</div>' +
+        '<table><thead><tr><th style="width:40px;font-weight:normal;">ที่</th><th style="font-weight:normal;">ชื่อ – สกุล</th><th style="width:35%;font-weight:normal;">หมายเหตุ</th></tr></thead><tbody>' +
+          rows.map(function(r) { return '<tr><td>' + r.no + '</td><td style="text-align:left;padding-left:15px;">' + r.name + '</td><td></td></tr>'; }).join('') +
+          Array(Math.max(0, 20 - rows.length)).fill('<tr><td><br></td><td></td><td></td></tr>').join('') +
+        '</tbody></table>' +
+        '<div class="sf" style="margin-top:30px;">' + teachers.map(function(x) { return '<div style="text-align:center;min-width:200px;">ลงชื่อ.......................................ครูประจำชั้น<br><div style="margin-top:10px;">( ' + x + ' )</div></div>'; }).join('') + '</div>' +
+      '</div>';
+
+    // ── บันทึกกิจกรรม ──
+    var pageActivity =
+      '<div class="page">' +
+        '<div class="tc fw" style="font-size:16px;margin-bottom:6px;">บันทึกการจัดกิจกรรม ภาคเรียนที่ ' + t + '</div>' +
+        '<table><thead><tr><th style="width:8%;font-weight:normal;">ครั้งที่</th><th style="width:12%;font-weight:normal;">วัน/เดือน/ปี</th><th style="font-weight:normal;">หัวข้อกิจกรรม / แผนการจัดการเรียนรู้</th><th style="width:20%;font-weight:normal;">ผู้สอน</th></tr></thead>' +
+        '<tbody>' + actRows + '</tbody></table>' +
+      '</div>';
+
+    // ── ตารางเช็คชื่อ (landscape) ──
+    var pageAtt =
+      '<div class="page att-page">' +
+        '<div class="tc fw" style="font-size:13px;margin-bottom:3px;">การเข้าร่วมกิจกรรมแนะแนว ภาคเรียนที่ ' + t + '</div>' +
+        '<div class="fw" style="margin-bottom:2px;font-size:12px;">ชั้น.................' + clsName + '..................ปีการศึกษา ' + year + '</div>' +
+        '<div style="font-size:11px;margin-bottom:5px;">/ = มาเรียนปกติ &nbsp; ข = ขาดเรียน &nbsp; ล = ลา &nbsp; เกณฑ์ผ่าน ≥ 80%</div>' +
+        '<table class="att-tbl"><thead><tr>' +
+          '<th rowspan="2" class="col-no">ที่</th>' +
+          '<th rowspan="2" class="col-name">ชื่อ – สกุล</th>' +
+          '<th colspan="' + nDates + '" style="border:1px solid #000;font-size:10px;">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>' +
+          '<th rowspan="2" class="col-sum">รวม</th>' +
+          '<th rowspan="2" class="col-pass">ผ่าน</th>' +
+          '<th rowspan="2" class="col-pass">ไม่ผ่าน</th>' +
+        '</tr><tr>' + attDateHeaders + '</tr></thead>' +
+        '<tbody>' + attRows + '</tbody></table>' +
+      '</div>';
+
+    return pageCover + pageRoster + pageActivity + pageAtt;
+  }
+
+  // ── สร้าง HTML รวม 2 เทอม ──────────────────────────────
+  var pageVision =
+    '<div class="page" style="padding:35px;">' +
+      '<div class="tc fw" style="font-size:17px;margin-bottom:10px;">วิสัยทัศน์</div>' +
+      '<div style="text-indent:40px;text-align:justify;margin-bottom:22px;">โรงเรียนบ้านคลอง ๑๔ มุ่งจัดการศึกษาให้เยาวชนเป็นคนดี มีคุณธรรม มีทักษะในการสื่อสาร มีความรู้ความสามารถเต็มตามศักยภาพของแต่ละบุคคล มีเจตคติที่ดีในการประกอบอาชีพสุจริตและใช้ชีวิตในสังคมได้อย่างมีความสุขตามแนวปรัชญาเศรษฐกิจพอเพียงด้วยกระบวนการบริหารจัดการที่ทันสมัยและการมีส่วนร่วมของบุคคลทั้งในและนอกสถานศึกษา</div>' +
+      '<div class="tc fw" style="font-size:17px;margin-bottom:10px;">พันธกิจ</div>' +
+      '<div style="margin-bottom:22px;padding-left:20px;line-height:1.9;">๑. ส่งเสริมสนับสนุนให้ชุมชนเข้ามามีส่วนร่วมในการจัดการศึกษา และใช้ภูมิปัญญาท้องถิ่น<br>๒. จัดการเรียนการสอนโดยยึดนักเรียนเป็นสำคัญ นักเรียนแสวงหาความรู้ด้วยตนเอง<br>๓. ส่งเสริมสนับสนุนให้ครูและบุคลากรทางการศึกษาพัฒนาตนเองและทำการวิจัยในชั้นเรียน<br>๔. จัดสภาพแวดล้อมของโรงเรียนให้เอื้อต่อการจัดการเรียนการสอน<br>๕. จัดกิจกรรมโครงการพระราชดำริอย่างต่อเนื่องและเป็นระบบ</div>' +
+      '<div class="tc fw" style="font-size:17px;margin-bottom:10px;">เป้าหมาย</div>' +
+      '<div style="padding-left:20px;line-height:1.9;">๑. ชุมชนมีส่วนร่วมในการจัดการศึกษา<br>๒. นำภูมิปัญญาท้องถิ่นมาใช้ในการจัดการเรียนการสอน<br>๓. ครูจัดการเรียนรู้โดยยึดนักเรียนเป็นสำคัญ<br>๔. นักเรียนรู้จักแสวงหาความรู้ได้ด้วยตนเองและสร้างองค์ความรู้ได้<br>๕. นักเรียนมีคุณธรรม จริยธรรมที่ดีงาม<br>๖. ส่งเสริมสนับสนุนครูและบุคลากรทางการศึกษาพัฒนาตนเองอยู่เสมอ<br>๗. จัดสภาพแวดล้อมในโรงเรียนให้เอื้อต่อการเรียนรู้<br>๘. จัดกิจกรรมตามโครงการพระราชดำริอย่างต่อเนื่องและเป็นระบบ</div>' +
+    '</div>';
+
+  var term1Pages = buildTermPages('1');
+  var term2Pages = buildTermPages('2');
+
+  if (!term1Pages && !term2Pages) {
+    return Utils.toast('ไม่พบข้อมูลทั้ง 2 เทอม', 'error');
+  }
 
   var win = window.open('', '_blank');
   if (!win) return Utils.toast('กรุณาอนุญาต Popup', 'error');
 
-  var css = '@page{size:A4 portrait;margin:15mm;}body{font-family:\'Sarabun\',sans-serif;font-size:15px;color:#000;margin:0;line-height:1.4;}.page{page-break-after:always;min-height:260mm;padding:10px 25px;}.tc{text-align:center;}.fw{font-weight:bold;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:6px;text-align:center;}.cover-box{border:1.5px solid #000;border-radius:12px;padding:15px;text-align:center;margin-bottom:15px;}.appr{border:1.5px solid #000;border-radius:25px;padding:20px 25px;margin-top:15px;}.st{width:90%;margin:15px auto;font-size:15px;}.rc{display:inline-block;width:13px;height:13px;border:1.5px solid #000;border-radius:50%;vertical-align:middle;margin-right:5px;}.sf{display:flex;justify-content:space-around;flex-wrap:wrap;margin-top:20px;gap:10px;}.rh{border:1px solid #000;border-radius:8px;padding:8px;width:65%;margin:0 auto 12px;text-align:center;font-size:17px;font-weight:bold;}';
+  var css =
+    '@page{size:A4 portrait;margin:12mm;}' +
+    '@page att{size:A4 landscape;margin:8mm;}' +
+    'body{font-family:\'Sarabun\',sans-serif;font-size:14px;color:#000;margin:0;line-height:1.35;}' +
+    '.page{page-break-after:always;min-height:260mm;padding:8px 18px;}' +
+    '.att-page{page-break-after:always;page:att;padding:6px 10px;}' +
+    '.tc{text-align:center;}.fw{font-weight:bold;}' +
+    'table{width:100%;border-collapse:collapse;}' +
+    'th,td{border:1px solid #000;padding:3px 2px;text-align:center;}' +
+    '.cover-box{border:1.5px solid #000;border-radius:12px;padding:12px;text-align:center;margin-bottom:12px;}' +
+    '.appr{border:1.5px solid #000;border-radius:25px;padding:14px 18px;margin-top:12px;}' +
+    '.st{width:90%;margin:10px auto;font-size:13px;}' +
+    '.rc{display:inline-block;width:13px;height:13px;border:1.5px solid #000;border-radius:50%;vertical-align:middle;margin-right:5px;}' +
+    '.sf{display:flex;justify-content:space-around;flex-wrap:wrap;margin-top:14px;gap:8px;}' +
+    '.rh{border:1px solid #000;border-radius:8px;padding:8px;width:65%;margin:0 auto 10px;text-align:center;font-size:15px;font-weight:bold;}' +
+    '.att-tbl{font-size:10px;table-layout:fixed;width:100%;}' +
+    '.att-tbl th,.att-tbl td{border:1px solid #000;padding:1px 0;text-align:center;overflow:hidden;}' +
+    '.att-tbl .col-no{width:22px;}' +
+    '.att-tbl .col-name{width:130px;text-align:left !important;padding-left:4px;white-space:nowrap;}' +
+    '.att-tbl .col-date{width:16px;}' +
+    '.att-tbl .col-sum{width:24px;font-weight:bold;}' +
+    '.att-tbl .col-pass{width:22px;}' +
+    '.att-tbl .v-date{writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;color:#c00;height:80px;padding:2px 0;}';
 
-  var html = '<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">' +
-    '<title>รายงานกิจกรรมแนะแนว_' + cls + '</title>' +
+  var html =
+    '<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">' +
+    '<title>รายงานกิจกรรมแนะแนว_' + cls + '_' + year + '</title>' +
     '<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">' +
     '<style>' + css + '</style></head><body>' +
-
-    '<div class="page">' +
-      '<div class="tc"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg/1200px-The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg.png" style="width:75px;margin-bottom:8px;"></div>' +
-      '<div class="cover-box"><div style="font-size:22px;font-weight:bold;">แบบบันทึกผลกิจกรรมแนะแนว</div><div style="font-size:17px;font-weight:bold;margin-top:8px;">ระดับชั้น <span style="border-bottom:1.5px dotted #000;display:inline-block;min-width:300px;">' + clsName + '</span></div></div>' +
-      '<div class="tc" style="font-size:15px;line-height:1.8;">หลักสูตรการศึกษาขั้นพื้นฐาน ระดับชั้น <u>' + clsName + '</u> ภาคเรียนที่ <u>' + term + '</u> ปีการศึกษา <u>' + year + '</u><br>' + schoolName + '<br>ครูประจำชั้น <span style="border-bottom:1.5px dotted #000;display:inline-block;min-width:320px;">' + teachers.join(' และ ') + '</span></div>' +
-      '<table class="st"><tr><td rowspan="2" style="width:25%;">นักเรียนทั้งหมด</td><td colspan="2">จำนวนนักเรียน</td><td rowspan="2" style="width:30%;">หมายเหตุ</td></tr><tr><td>ผ่าน</td><td>ไม่ผ่าน</td></tr><tr><td style="padding:15px 0;">' + rows.length + '</td><td>' + passCount + '</td><td>' + failCount + '</td><td></td></tr></table>' +
-      '<div class="appr"><div style="font-size:17px;font-weight:bold;margin-bottom:15px;">การอนุมัติผลการเรียน</div><div class="sf">' + signLines + '</div><div style="margin-top:18px;">ลงชื่อ...............................................หัวหน้ากิจกรรมพัฒนาผู้เรียน<br><span style="margin-left:40px;">(...............................................)</span></div><div style="margin-top:12px;">ลงชื่อ...............................................หัวหน้างานวัดผลและประเมินผล<br><span style="margin-left:40px;">( ' + evalHeadName + ' )</span></div><div style="margin-top:20px;text-align:center;"><div style="font-weight:bold;">เรียน เสนอเพื่อพิจารณาอนุมัติผลการเรียน</div><div style="display:flex;justify-content:center;gap:50px;margin:15px 0;"><span><span class="rc"></span> อนุมัติ</span><span><span class="rc"></span> ไม่อนุมัติ</span></div>ลงชื่อ....................................................................<br><div style="margin-top:8px;">' + directorName + '</div><div>ผู้อำนวยการ' + schoolName + '</div></div></div>' +
-    '</div>' +
-
-    '<div class="page" style="padding:40px;">' +
-      '<div class="tc fw" style="font-size:18px;margin-bottom:10px;">วิสัยทัศน์</div><div style="text-indent:40px;text-align:justify;margin-bottom:25px;">โรงเรียนบ้านคลอง ๑๔ มุ่งจัดการศึกษาให้เยาวชนเป็นคนดี มีคุณธรรม มีทักษะในการสื่อสาร มีความรู้ความสามารถเต็มตามศักยภาพของแต่ละบุคคล มีเจตคติที่ดีในการประกอบอาชีพสุจริตและใช้ชีวิตในสังคมได้อย่างมีความสุขตามแนวปรัชญาเศรษฐกิจพอเพียงด้วยกระบวนการบริหารจัดการที่ทันสมัยและการมีส่วนร่วมของบุคคลทั้งในและนอกสถานศึกษา</div>' +
-      '<div class="tc fw" style="font-size:18px;margin-bottom:10px;">พันธกิจ</div><div style="margin-bottom:25px;padding-left:20px;line-height:1.9;">๑. ส่งเสริมสนับสนุนให้ชุมชนเข้ามามีส่วนร่วมในการจัดการศึกษา และใช้ภูมิปัญญาท้องถิ่น<br>๒. จัดการเรียนการสอนโดยยึดนักเรียนเป็นสำคัญ นักเรียนแสวงหาความรู้ด้วยตนเอง<br>๓. ส่งเสริมสนับสนุนให้ครูและบุคลากรทางการศึกษาพัฒนาตนเองและทำการวิจัยในชั้นเรียน<br>๔. จัดสภาพแวดล้อมของโรงเรียนให้เอื้อต่อการจัดการเรียนการสอน<br>๕. จัดกิจกรรมโครงการพระราชดำริอย่างต่อเนื่องและเป็นระบบ</div>' +
-      '<div class="tc fw" style="font-size:18px;margin-bottom:10px;">เป้าหมาย</div><div style="padding-left:20px;line-height:1.9;">๑. ชุมชนมีส่วนร่วมในการจัดการศึกษา<br>๒. นำภูมิปัญญาท้องถิ่นมาใช้ในการจัดการเรียนการสอน<br>๓. ครูจัดการเรียนรู้โดยยึดนักเรียนเป็นสำคัญ<br>๔. นักเรียนรู้จักแสวงหาความรู้ได้ด้วยตนเองและสร้างองค์ความรู้ได้<br>๕. นักเรียนมีคุณธรรม จริยธรรมที่ดีงาม<br>๖. ส่งเสริมสนับสนุนครูและบุคลากรทางการศึกษาพัฒนาตนเองอยู่เสมอ<br>๗. จัดสภาพแวดล้อมในโรงเรียนให้เอื้อต่อการเรียนรู้<br>๘. จัดกิจกรรมตามโครงการพระราชดำริอย่างต่อเนื่องและเป็นระบบ</div>' +
-    '</div>' +
-
-    '<div class="page">' +
-      '<div class="rh">กิจกรรมแนะแนว ระดับชั้น ' + clsName + '</div>' +
-      '<div style="margin-left:15%;font-size:15px;margin-bottom:6px;">จำนวนนักเรียน..........' + rows.length + '..........คน</div>' +
-      '<table><thead><tr><th style="width:40px;font-weight:normal;">ที่</th><th style="font-weight:normal;">ชื่อ – สกุล</th><th style="width:35%;font-weight:normal;">หมายเหตุ</th></tr></thead><tbody>' +
-        rows.map(function(r) { return '<tr><td>' + r.no + '</td><td style="text-align:left;padding-left:15px;">' + r.name + '</td><td></td></tr>'; }).join('') +
-        Array(Math.max(0, 20 - rows.length)).fill('<tr><td><br></td><td></td><td></td></tr>').join('') +
-      '</tbody></table>' +
-      '<div class="sf" style="margin-top:40px;">' + teachers.map(function(t) { return '<div style="text-align:center;min-width:200px;">ลงชื่อ.......................................ครูประจำชั้น<br><div style="margin-top:10px;">( ' + t + ' )</div></div>'; }).join('') + '</div>' +
-    '</div>' +
-
-    '<div class="page">' +
-      '<div class="tc fw" style="font-size:17px;margin-bottom:6px;">บันทึกการจัดกิจกรรม</div>' +
-      '<table><thead><tr><th style="width:8%;font-weight:normal;">ครั้งที่</th><th style="width:12%;font-weight:normal;">วัน/เดือน/ปี</th><th style="font-weight:normal;">หัวข้อกิจกรรม / แผนการจัดการเรียนรู้</th><th style="width:20%;font-weight:normal;">ผู้สอน</th></tr></thead>' +
-      '<tbody>' + actRows + '</tbody></table>' +
-    '</div>' +
-
-    '<div class="page">' +
-      '<div class="tc fw" style="font-size:17px;margin-bottom:6px;">การเข้าร่วมกิจกรรมแนะแนว</div>' +
-      '<div class="fw" style="margin-bottom:3px;">ชั้น...................' + cls + '.....................</div>' +
-      '<div style="font-size:13px;font-weight:bold;text-decoration:underline;margin-bottom:4px;">คำชี้แจง</div>' +
-      '<div style="font-size:13px;margin-bottom:8px;padding-left:12px;line-height:1.6;">1. เครื่องหมาย / = มาเรียนปกติ, ข = ขาดเรียน, ล = ลา, - = งดเรียน (ไม่นับคาบ)<br>2. เกณฑ์ผ่าน: เวลาเรียนไม่น้อยกว่า 80% ของเวลาเรียนทั้งหมด</div>' +
-      '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
-        '<thead><tr>' +
-          '<th rowspan="2" style="width:25px;border:1px solid #000;">ที่</th>' +
-          '<th rowspan="2" style="min-width:140px;text-align:left;padding-left:5px;border:1px solid #000;">ชื่อ – สกุล</th>' +
-          '<th colspan="' + nDates + '" style="border:1px solid #000;font-size:11px;">วัน/เดือน/ปี ครั้งที่เข้าร่วมกิจกรรม</th>' +
-          '<th rowspan="2" style="width:30px;border:1px solid #000;">รวม</th>' +
-          '<th rowspan="2" style="width:28px;border:1px solid #000;">ผ่าน</th>' +
-          '<th rowspan="2" style="width:28px;border:1px solid #000;">ไม่ผ่าน</th>' +
-        '</tr><tr style="height:100px;">' + attDateHeaders + '</tr></thead>' +
-        '<tbody>' + attRows + '</tbody>' +
-      '</table>' +
-    '</div>' +
-
+    pageVision +
+    term1Pages +
+    term2Pages +
     '</body></html>';
 
   win.document.open();
   win.document.write(html);
   win.document.close();
 }
+
 
 // ── legacy stubs ──────────────────────────────────────
 function calcGuidanceSchedule() { onGuidanceSettingChange(); }
