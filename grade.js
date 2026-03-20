@@ -134,7 +134,21 @@ async function loadGrades() {
     normalizeUnits(1); normalizeUnits(2); renderSubList(1); if (!App.isSemMode) renderSubList(2);
     refreshUnitPanelLabels(); updateAutoScoreDisplay();
 
-    App.students = res.students ||[]; App.expanded = { 1: true, 2: true };
+    // ── โหลด rtw_data + guidance_data แล้ว merge เข้า students ──
+    let rtwMap = {}, guidanceMap = {};
+    try {
+      [rtwMap, guidanceMap] = await Promise.all([
+        api('getRTWData',      { year, classroom: cls, subject: subj }),
+        api('getGuidanceData', { year, classroom: cls })
+      ]);
+    } catch (e) { /* ถ้ายังไม่มีชีท ไม่ error */ }
+
+    App.students = (res.students || []).map(s => ({
+      ...s,
+      rtw_data      : rtwMap[s.studentId]      || {},
+      guidance_data : guidanceMap[s.studentId] || {}
+    }));
+    App.expanded = { 1: true, 2: true };
     $('gradePanel').style.display = '';
     buildTable();
     renderHolisticTable(App.students, 'assContainer', 'assBody', 'subject');
