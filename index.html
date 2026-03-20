@@ -3423,21 +3423,49 @@ function calcGuidanceSchedule() {
 }
 
 // 2. สร้างตารางกรอกข้อมูลแนะแนว
-function renderGuidanceTable(isRecalculating = false) {
+  function renderGuidanceTable(isRecalculating = false) {
   const container = $('guidanceContainer');
   if (!App.students.length) return;
 
   if (!isRecalculating) {
-    // ถ้าเพิ่งเปิดแท็บ สร้างแผงควบคุมด้านบนก่อน
-    const cls = $('gClass').value;
+    const cls = $('gClass').value.trim();
     const defaultTerm = cls.includes("เทอม 2") ? "2" : "1";
-    let hrTeacherStr = ($('rtw_homeroom_teacher') ? $('rtw_homeroom_teacher').value : "") || App.user?.name || '';
+    
+    // --- ระบบจดจำชื่อครูประจำชั้นแยกตามห้องเรียน ---
+    App.hrMap = App.hrMap || {};
+    let hrTeacherStr = App.hrMap[cls];
+    if (hrTeacherStr === undefined) {
+      hrTeacherStr = (App.user && App.user.classroom === cls) ? App.user.name : "";
+    }
 
+    // ==========================================
+    // 🧹 NUCLEAR CLEANUP: ล้างกล่องเก่าออกให้เกลี้ยง
+    // ==========================================
+    // 1. ล้างกล่องแบบใหม่ทั้งหมดที่อาจเคยสร้างไว้ซ้อนกัน
+    document.querySelectorAll('.guide-dynamic-panel').forEach(el => el.remove());
+    document.querySelectorAll('#guide_panel_control').forEach(el => el.remove());
+
+    // 2. ล้างกล่องเวอร์ชันดั้งเดิมที่ติดมากับ HTML (อาศัยจุดสังเกตจากคำว่า "นาย ก / นาง ข" หรือช่อง "guidance_max_time")
+    document.querySelectorAll('input[placeholder="นาย ก / นาง ข"]').forEach(el => {
+       const parentFlex = el.closest('div[style*="display:flex"]');
+       if (parentFlex) parentFlex.remove();
+    });
+    
+    document.querySelectorAll('#guidance_max_time').forEach(el => {
+       const parentFlex = el.closest('div[style*="display:flex"]');
+       if (parentFlex) parentFlex.remove();
+       else el.parentElement.remove();
+    });
+    // ==========================================
+
+    // สร้างกล่องควบคุมขึ้นมาใหม่เพียง 1 กล่องเท่านั้น (ใส่ class guide-dynamic-panel ไว้เพื่อลบง่ายๆ ในรอบถัดไป)
     const panelHtml = `
-      <div style="display:flex; align-items:center; gap:15px; margin-bottom:15px; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e2e8f0; flex-wrap:wrap;">
+      <div id="guide_panel_control" class="guide-dynamic-panel" style="display:flex; align-items:center; gap:15px; margin-bottom:15px; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e2e8f0; flex-wrap:wrap;">
         <div style="display:flex; align-items:center; gap:8px;">
           <label style="font-weight:bold; color:#701a75; margin:0;">👨‍🏫 ครูประจำชั้น:</label>
-          <input type="text" id="guidance_teacher" value="${hrTeacherStr}" style="width:250px; padding:6px; border:1px solid #94a3b8; border-radius:4px; font-weight:bold;">
+          <input type="text" id="guidance_teacher" value="${hrTeacherStr}" 
+                 oninput="App.hrMap[document.getElementById('gClass').value.trim()] = this.value; if(document.getElementById('rtw_homeroom_teacher')) document.getElementById('rtw_homeroom_teacher').value = this.value;" 
+                 style="width:250px; padding:6px; border:1px solid #94a3b8; border-radius:4px; font-weight:bold;">
         </div>
         
         <div style="display:flex; align-items:center; gap:8px; border-left:2px solid #fdf4ff; padding-left:15px;">
@@ -3464,11 +3492,12 @@ function renderGuidanceTable(isRecalculating = false) {
         </div>
       </div>
     `;
-    $('panel_guidance').querySelector('.card').insertAdjacentHTML('afterbegin', panelHtml);
     
-    // เรียกคำนวณครั้งแรก
+    // แทรกกล่องลงไปเหนือตาราง
+    container.insertAdjacentHTML('beforebegin', panelHtml);
+    
     setTimeout(calcGuidanceSchedule, 100);
-    return; // หยุดทำงานก่อน รอฟังก์ชันคำนวณวาดใหม่
+    return; 
   }
 
   const maxTime = App.guidanceDates.length;
