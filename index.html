@@ -3385,26 +3385,26 @@ function printRTWReport() {
 // =====================================================
 
 // ตัวแปรเก็บวันที่แนะแนวที่คำนวณได้
-App.guidanceDates = [];
+App.guidanceDates =[];
+App.guidanceTopics =[]; // เก็บหัวข้อที่ครูพิมพ์
 
 // ฟังก์ชันแปลงวันที่สำหรับแสดงผลย่อ (เช่น 15 มิ.ย.)
 function getShortThaiDate(dStr) {
   const parts = dStr.split('/');
   if (parts.length !== 3) return dStr;
-  const mNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const mNames =['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   return `${parseInt(parts[0])} ${mNames[parseInt(parts[1])-1]}`;
 }
 
 // 1. ฟังก์ชันคำนวณวันที่เรียนอัตโนมัติ (ตัดวันหยุด)
-// ฟังก์ชันคำนวณวันเรียนจริงจากวันเปิด-ปิดเทอม
 function calcGuidanceSchedule() {
-  const term = $('guide_term').value; // เทอม 1 หรือ 2
-  const dayOfWeek = parseInt($('guide_day').value); // 1=จันทร์ ... 5=ศุกร์
+  const term = $('guide_term').value; 
+  const dayOfWeek = parseInt($('guide_day').value); 
   
   const startD = App.termDates[`t${term}_start`];
   const endD = App.termDates[`t${term}_end`];
   
-  App.guidanceDates = [];
+  App.guidanceDates =[];
   
   if (startD && endD) {
     const parseD = (str) => {
@@ -3425,15 +3425,12 @@ function calcGuidanceSchedule() {
     }
   }
   
-  // อัปเดตตัวเลขจำนวนคาบในหน้าจอ
   if ($('guide_total_show')) $('guide_total_show').textContent = App.guidanceDates.length;
-  if ($('guidance_max_time')) $('guidance_max_time').value = App.guidanceDates.length;
-  
-  renderGuidanceTable(true); // วาดตารางใหม่
+  renderGuidanceTable(true); 
 }
 
-// 2. สร้างตารางกรอกข้อมูลแนะแนว
-  function renderGuidanceTable(isRecalculating = false) {
+// 2. สร้างตารางกรอกข้อมูลแนะแนว (ตารางเช็คชื่อรายวัน)
+function renderGuidanceTable(isRecalculating = false) {
   const container = $('guidanceContainer');
   if (!App.students.length) return;
 
@@ -3441,43 +3438,22 @@ function calcGuidanceSchedule() {
     const cls = $('gClass').value.trim();
     const defaultTerm = cls.includes("เทอม 2") ? "2" : "1";
     
-    // --- ระบบจดจำชื่อครูประจำชั้นแยกตามห้องเรียน ---
     App.hrMap = App.hrMap || {};
     let hrTeacherStr = App.hrMap[cls];
-    if (hrTeacherStr === undefined) {
-      hrTeacherStr = (App.user && App.user.classroom === cls) ? App.user.name : "";
-    }
+    if (hrTeacherStr === undefined) hrTeacherStr = (App.user && App.user.classroom === cls) ? App.user.name : "";
 
-    // ==========================================
-    // 🧹 NUCLEAR CLEANUP: ล้างกล่องเก่าออกให้เกลี้ยง
-    // ==========================================
-    // 1. ล้างกล่องแบบใหม่ทั้งหมดที่อาจเคยสร้างไว้ซ้อนกัน
+    // ล้างกล่องควบคุมเก่า
     document.querySelectorAll('.guide-dynamic-panel').forEach(el => el.remove());
     document.querySelectorAll('#guide_panel_control').forEach(el => el.remove());
 
-    // 2. ล้างกล่องเวอร์ชันดั้งเดิมที่ติดมากับ HTML (อาศัยจุดสังเกตจากคำว่า "นาย ก / นาง ข" หรือช่อง "guidance_max_time")
-    document.querySelectorAll('input[placeholder="นาย ก / นาง ข"]').forEach(el => {
-       const parentFlex = el.closest('div[style*="display:flex"]');
-       if (parentFlex) parentFlex.remove();
-    });
-    
-    document.querySelectorAll('#guidance_max_time').forEach(el => {
-       const parentFlex = el.closest('div[style*="display:flex"]');
-       if (parentFlex) parentFlex.remove();
-       else el.parentElement.remove();
-    });
-    // ==========================================
-
-    // สร้างกล่องควบคุมขึ้นมาใหม่เพียง 1 กล่องเท่านั้น (ใส่ class guide-dynamic-panel ไว้เพื่อลบง่ายๆ ในรอบถัดไป)
     const panelHtml = `
       <div id="guide_panel_control" class="guide-dynamic-panel" style="display:flex; align-items:center; gap:15px; margin-bottom:15px; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e2e8f0; flex-wrap:wrap;">
         <div style="display:flex; align-items:center; gap:8px;">
           <label style="font-weight:bold; color:#701a75; margin:0;">👨‍🏫 ครูประจำชั้น:</label>
           <input type="text" id="guidance_teacher" value="${hrTeacherStr}" 
-                 oninput="App.hrMap[document.getElementById('gClass').value.trim()] = this.value; if(document.getElementById('rtw_homeroom_teacher')) document.getElementById('rtw_homeroom_teacher').value = this.value;" 
+                 oninput="App.hrMap[document.getElementById('gClass').value.trim()] = this.value;" 
                  style="width:250px; padding:6px; border:1px solid #94a3b8; border-radius:4px; font-weight:bold;">
         </div>
-        
         <div style="display:flex; align-items:center; gap:8px; border-left:2px solid #fdf4ff; padding-left:15px;">
           <label style="font-weight:bold; color:#0369a1; margin:0;">📅 ภาคเรียน:</label>
           <select id="guide_term" style="padding:6px; border-radius:4px; font-weight:bold;" onchange="calcGuidanceSchedule()">
@@ -3485,103 +3461,130 @@ function calcGuidanceSchedule() {
             <option value="2" ${defaultTerm === "2" ? "selected" : ""}>2</option>
           </select>
         </div>
-
         <div style="display:flex; align-items:center; gap:8px;">
           <label style="font-weight:bold; color:#0369a1; margin:0;">เรียนทุกวัน:</label>
           <select id="guide_day" style="padding:6px; border-radius:4px; font-weight:bold;" onchange="calcGuidanceSchedule()">
-            <option value="1">จันทร์</option>
-            <option value="2">อังคาร</option>
-            <option value="3">พุธ</option>
-            <option value="4">พฤหัสบดี</option>
-            <option value="5" selected>ศุกร์</option>
+            <option value="1">จันทร์</option><option value="2">อังคาร</option><option value="3">พุธ</option>
+            <option value="4">พฤหัสบดี</option><option value="5" selected>ศุกร์</option>
           </select>
         </div>
-
         <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:6px 15px; border-radius:50px; font-weight:bold;">
           รวมเวลาเรียน: <span id="guide_total_show" style="font-size:1.1rem; color:#15803d;">0</span> คาบ
         </div>
       </div>
     `;
-    
-    // แทรกกล่องลงไปเหนือตาราง
     container.insertAdjacentHTML('beforebegin', panelHtml);
-    
     setTimeout(calcGuidanceSchedule, 100);
     return; 
   }
 
   const maxTime = App.guidanceDates.length;
 
+  // แถวหัวตาราง (วันที่) และแถวกรอกหัวข้อกิจกรรม
+  let dateHeaders = App.guidanceDates.map((d, i) => `<th style="min-width:70px; font-size:11px;">ครั้งที่ ${i+1}<br>${getShortThaiDate(d)}</th>`).join('');
+  let topicInputs = App.guidanceDates.map((d, i) => `<th style="padding:2px;"><input type="text" class="guide-topic" data-idx="${i}" placeholder="หัวข้อที่สอน" value="${App.guidanceTopics?.[i] || ''}" style="width:100%; font-size:11px; padding:3px; border:1px solid #cbd5e1; border-radius:3px;"></th>`).join('');
+
   const htmlRows = App.students.map((s, idx) => {
     const g = s.guidance_data || {};
-    const attended = g.attended !== undefined ? g.attended : maxTime; 
-    const result = g.result || 'ผ่าน';
+    
+    // แปลงรูปแบบเก่า(ตัวเลขรวม) เป็นรูปแบบตารางเช็คชื่อ ป/ข/ล
+    let attArray = g.attArray;
+    if (!attArray || attArray.length === 0) {
+       attArray =[];
+       const oldAtt = g.attended !== undefined ? parseInt(g.attended) : maxTime;
+       for(let i=0; i<maxTime; i++) attArray.push(i < oldAtt ? 'ป' : 'ข');
+    }
+
+    const attended = attArray.filter(v => v === 'ป').length;
+    const baseDays = attArray.filter(v => v !== '-').length;
+    const result = g.result || (attended >= Math.ceil(baseDays * 0.8) ? 'ผ่าน' : 'ไม่ผ่าน');
+
+    let attCells = App.guidanceDates.map((d, i) => `
+      <td style="padding:2px;">
+         <select class="guide-att" data-idx="${i}" onchange="calcGuidanceGridRow(this)" style="width:100%; padding:2px; font-size:12px; text-align:center; border:1px solid #e2e8f0; border-radius:3px; font-weight:bold; background:${attArray[i]==='ข'?'#fee2e2':attArray[i]==='ล'?'#fef3c7':'#fff'}; color:${attArray[i]==='ข'?'#dc2626':attArray[i]==='ล'?'#b45309':'#166534'};">
+           <option value="ป" ${attArray[i] === 'ป' ? 'selected' : ''}>ป</option>
+           <option value="ข" ${attArray[i] === 'ข' ? 'selected' : ''}>ข</option>
+           <option value="ล" ${attArray[i] === 'ล' ? 'selected' : ''}>ล</option>
+           <option value="-" ${attArray[i] === '-' ? 'selected' : ''}>-</option>
+         </select>
+      </td>
+    `).join('');
 
     return `
       <tr data-guidesid="${s.studentId}">
-        <td class="ass-no">${idx + 1}</td>
-        <td class="ass-name" style="text-align:left; background:#fff; position:sticky; left:0; z-index:10;">${s.name}</td>
-        <td>
-          <input type="number" class="inp-ass guide-time" min="0" max="${maxTime}" value="${attended}" oninput="calcGuidanceRow(this)" style="width:60px;">
-        </td>
-        <td>
-          <select class="sinput guide-result" style="width:90px; padding:4px; font-size:0.85rem; font-weight:bold; color:${result==='ผ่าน'?'#16a34a':'#dc2626'};" onchange="this.style.color = this.value==='ผ่าน'?'#16a34a':'#dc2626'">
+        <td class="ass-no" style="background:#fff; position:sticky; left:0; z-index:10; border-right:1px solid #e2e8f0;">${idx + 1}</td>
+        <td class="ass-name" style="text-align:left; background:#fff; position:sticky; left:35px; z-index:10; border-right:2px solid #cbd5e1; white-space:nowrap; padding:4px 8px;">${s.name}</td>
+        ${attCells}
+        <td class="guide-total-val fw-bold" style="text-align:center; background:#f8fafc;">${attended}</td>
+        <td style="background:#f8fafc;">
+          <select class="sinput guide-result" style="width:100%; padding:2px; font-size:0.85rem; font-weight:bold; color:${result==='ผ่าน'?'#16a34a':'#dc2626'}; border:none; background:transparent;" onchange="this.style.color = this.value==='ผ่าน'?'#16a34a':'#dc2626'">
             <option value="ผ่าน" ${result === 'ผ่าน' ? 'selected' : ''}>ผ่าน</option>
             <option value="ไม่ผ่าน" ${result === 'ไม่ผ่าน' ? 'selected' : ''}>ไม่ผ่าน</option>
           </select>
         </td>
-        <td><input type="text" class="inp-ass guide-note" value="${g.note || ''}" style="width:90%; text-align:left; padding:4px 8px;" placeholder="หมายเหตุ..."></td>
       </tr>`;
   }).join('');
 
   container.innerHTML = `
-    <div class="ass-wrap">
-      <table class="ass-tbl" style="font-size:13px;">
-        <thead style="background:#fdf4ff;">
+    <div class="ass-wrap" style="max-height: 60vh; overflow: auto;">
+      <table class="ass-tbl" style="font-size:12px; min-width:max-content; border-collapse: separate; border-spacing: 0;">
+        <thead style="background:#fdf4ff; position:sticky; top:0; z-index:20; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
           <tr>
-            <th style="width:40px;">ที่</th>
-            <th style="min-width:180px;">ชื่อ-นามสกุล</th>
-            <th style="width:90px;">เข้าร่วม (ครั้ง)</th>
-            <th style="width:110px;">ผลการประเมิน</th>
-            <th>หมายเหตุ</th>
+            <th rowspan="2" style="width:35px; position:sticky; left:0; z-index:30; background:#fdf4ff; border-right:1px solid #e2e8f0; border-bottom:1px solid #cbd5e1;">ที่</th>
+            <th rowspan="2" style="min-width:160px; position:sticky; left:35px; z-index:30; background:#fdf4ff; border-right:2px solid #cbd5e1; border-bottom:1px solid #cbd5e1;">ชื่อ-นามสกุล</th>
+            ${dateHeaders}
+            <th rowspan="2" style="width:50px; background:#f0fdf4; border-bottom:1px solid #cbd5e1;">มา<br>(ครั้ง)</th>
+            <th rowspan="2" style="width:70px; background:#f0fdf4; border-bottom:1px solid #cbd5e1;">ผลประเมิน</th>
+          </tr>
+          <tr>
+            ${topicInputs}
           </tr>
         </thead>
         <tbody id="guidanceBody">${htmlRows}</tbody>
       </table>
+    </div>
+    <div style="padding:10px 0; font-size:13px; color:#64748b; font-weight:bold;">
+      * สัญลักษณ์: <span style="color:#166534;">[ป = มาเรียนปกติ]</span> , <span style="color:#dc2626;">[ข = ขาดเรียน]</span> , <span style="color:#b45309;">[ล = ลา]</span> , <span style="color:#64748b;">[- = งดเรียน/ไม่คิดคาบเรียน]</span>
     </div>`;
 }
 
-// 3. คำนวณ ผ่าน/ไม่ผ่าน อัตโนมัติ (80%)
-function calcGuidanceRow(input) {
-  const tr = input.closest('tr');
-  const maxTime = App.guidanceDates.length;
-  let val = parseInt(input.value) || 0;
+// 3. คำนวณตารางเช็คชื่อ และตัดผล (80%)
+function calcGuidanceGridRow(sel) {
+  const tr = sel.closest('tr');
   
-  if (val > maxTime) { val = maxTime; input.value = maxTime; Utils.toast(`เวลาเรียนสูงสุด ${maxTime} ครั้ง`, 'warning'); }
-  if (val < 0) { val = 0; input.value = 0; }
+  // เปลี่ยนสีพื้นหลังตามการเลือก
+  if(sel.value === 'ข') { sel.style.background = '#fee2e2'; sel.style.color = '#dc2626'; }
+  else if(sel.value === 'ล') { sel.style.background = '#fef3c7'; sel.style.color = '#b45309'; }
+  else { sel.style.background = '#fff'; sel.style.color = '#166534'; }
 
-  const sel = tr.querySelector('.guide-result');
-  if (val >= (maxTime * 0.8)) { sel.value = 'ผ่าน'; sel.style.color = '#16a34a'; } 
-  else { sel.value = 'ไม่ผ่าน'; sel.style.color = '#dc2626'; }
+  const atts = Array.from(tr.querySelectorAll('.guide-att')).map(s => s.value);
+  const totalP = atts.filter(v => v === 'ป').length;
+  const baseDays = atts.filter(v => v !== '-').length;
+  const target = Math.ceil(baseDays * 0.8);
 
-  if (document.activeElement === input && input.value.length >= String(maxTime).length) {
-    const nextTr = tr.nextElementSibling;
-    if (nextTr) {
-      const nextInp = nextTr.querySelector('.guide-time');
-      if (nextInp) { nextInp.focus(); nextInp.select(); }
-    }
+  tr.querySelector('.guide-total-val').textContent = totalP;
+  const resSel = tr.querySelector('.guide-result');
+  if (totalP >= target) {
+     resSel.value = 'ผ่าน';
+     resSel.style.color = '#16a34a';
+  } else {
+     resSel.value = 'ไม่ผ่าน';
+     resSel.style.color = '#dc2626';
   }
 }
 
 // 4. บันทึกข้อมูล
 async function saveGuidanceData() {
+  const topics = Array.from(document.querySelectorAll('.guide-topic')).map(i => i.value);
+  App.guidanceTopics = topics; // บันทึกหัวข้อกิจกรรม
+
   const records = [];
   $$('#guidanceBody tr[data-guidesid]').forEach(tr => {
     records.push({
       studentId: tr.getAttribute('data-guidesid'),
-      attended: tr.querySelector('.guide-time').value,
-      result: tr.querySelector('.guide-result').value,
-      note: tr.querySelector('.guide-note').value
+      attArray: Array.from(tr.querySelectorAll('.guide-att')).map(s => s.value),
+      attended: tr.querySelector('.guide-total-val').textContent,
+      result: tr.querySelector('.guide-result').value
     });
   });
 
@@ -3594,6 +3597,7 @@ async function saveGuidanceData() {
       subject: $('gSubj').value,
       maxTime: App.guidanceDates.length,
       teacher: $('guidance_teacher').value,
+      topics: topics,
       records: records
     });
     Utils.toast('✅ บันทึกกิจกรรมแนะแนวสำเร็จ');
@@ -3601,16 +3605,13 @@ async function saveGuidanceData() {
   Utils.hideLoading();
 }
 
-
-  
-  // ฟังก์ชันพิมพ์รายงานแนะแนว (อัปเดตหน้าปกใหม่ตามภาพต้นฉบับ)
+// 5. ฟังก์ชันพิมพ์รายงานแนะแนว
 function printGuidanceReport() {
   const cls = $('gClass').value;
   const year = $('gYear').value;
   const term = $('guide_term').value || '.......';
   const clsName = cls.split('เทอม')[0].trim(); 
 
-  // กำหนดชื่อผู้บริหารตามภาพ
   const evalHeadName = "นางสาวกิตติญา สินทม";
   const directorName = "นางปราณี วาดเขียน";
   const schoolName = "โรงเรียนบ้านคลอง ๑๔";
@@ -3622,13 +3623,15 @@ function printGuidanceReport() {
   let teachers = rawTeacherName.split(/\s*(?:และ|\/|,)\s*/).filter(t => t);
   if (teachers.length === 0) teachers = ['........................................................'];
 
-  const rows = [...$$('#guidanceBody tr[data-guidesid]')].map((tr, i) => {
+  const topics = Array.from(document.querySelectorAll('.guide-topic')).map(i => i.value);
+
+  const rows =[...$$('#guidanceBody tr[data-guidesid]')].map((tr, i) => {
     return {
       no: i + 1, 
       name: tr.querySelector('.ass-name').textContent,
-      attended: tr.querySelector('.guide-time').value,
-      result: tr.querySelector('.guide-result').value,
-      note: tr.querySelector('.guide-note').value
+      atts: Array.from(tr.querySelectorAll('.guide-att')).map(s => s.value),
+      attended: tr.querySelector('.guide-total-val').textContent,
+      result: tr.querySelector('.guide-result').value
     };
   });
 
@@ -3637,24 +3640,10 @@ function printGuidanceReport() {
   let passCount = 0; let failCount = 0;
   rows.forEach(r => { if(r.result === 'ผ่าน') passCount++; else failCount++; });
 
-  // ฟังก์ชันช่วยจัดข้อความภาษาไทยแนวตั้ง
-  const thaiVert = (str) => {
-    let res = '';
-    for(let i = 0; i < str.length; i++){
-      let ch = str[i];
-      if(ch === ' ') continue; 
-      while(i + 1 < str.length && str[i + 1].match(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/)){
-        ch += str[++i];
-      }
-      res += ch + '<br>';
-    }
-    return res;
-  };
-
   const getVeryShortDate = (dStr) => {
     const p = dStr.split('/');
     if(p.length !== 3) return dStr;
-    const m = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    const m =['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
     const yy = p[2].substring(2);
     return `${parseInt(p[0])}${m[parseInt(p[1])-1]}${yy}`;
   };
@@ -3676,46 +3665,36 @@ function printGuidanceReport() {
         .text-left { text-align: left; }
         .fw-bold { font-weight: bold; }
         
-        /* สไตล์ตารางทั่วไป */
         table { width: 100%; border-collapse: collapse; }
         th, td { border: 1px solid #000; padding: 6px; text-align: center; }
 
-        /* สไตล์เฉพาะหน้าปกใหม่ */
         .cover-box { border: 1.5px solid #000; border-radius: 12px; padding: 15px; text-align: center; margin-bottom: 15px; }
         .approval-box { border: 1.5px solid #000; border-radius: 35px; padding: 25px 30px; text-align: left; margin-top: 20px; }
         .stat-table { width: 90%; margin: 20px auto; font-weight: bold; font-size: 16px; }
         .stat-table th, .stat-table td { border: 1px solid #000; padding: 10px; }
         .sign-line { margin-top: 15px; font-size: 16px; }
-        
         .radio-circle { display: inline-block; width: 14px; height: 14px; border: 1.5px solid #000; border-radius: 50%; vertical-align: middle; margin-right: 5px; margin-top: -2px; }
 
-        /* สไตล์สำหรับกล่องหน้า 3 */
         .rounded-header { border: 1px solid #000; border-radius: 8px; padding: 8px; width: 65%; margin: 0 auto 15px; text-align: center; font-size: 18px; font-weight: bold; }
         .sign-flex-bottom { display: flex; justify-content: space-around; margin-top: 40px; }
         
-        /* สไตล์ตารางเช็คชื่อหน้า 5 */
         .att-table { margin-top: 10px; }
         .att-table th, .att-table td { padding: 3px; font-size: 12px; }
-        .att-col { width: 18px; padding: 0 !important; }
-        .red-date { color: red; font-size: 11px; font-weight: normal; line-height: 1.1; padding-top: 5px; vertical-align: top; }
-        .vert-header { font-size: 12px; line-height: 1.1; padding-top: 5px; vertical-align: top; }
       </style>
     </head>
     <body>
 
-      <!-- ================= หน้า 1: ปกใหม่ตามภาพ ================= -->
+      <!-- ================= หน้า 1: ปก ================= -->
       <div class="page">
         <div class="text-center">
           <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg/1200px-The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg.png" style="width: 80px; margin-bottom: 10px;">
         </div>
-
         <div class="cover-box">
           <div class="fw-bold" style="font-size: 22px;">แบบบันทึกผลกิจกรรมแนะแนว</div>
           <div class="fw-bold" style="font-size: 18px; margin-top: 8px;">
             ระดับชั้น <span style="border-bottom: 1.5px dotted #000; display: inline-block; min-width: 350px;">${clsName}</span>
           </div>
         </div>
-
         <div class="text-center" style="font-size: 16px; line-height: 1.6;">
           หลักสูตรการศึกษาขั้นพื้นฐาน ระดับชั้น <span style="border-bottom: 1px dotted #000; min-width: 60px; display: inline-block;">${clsName}</span>
           ภาคเรียนที่ <span style="border-bottom: 1px dotted #000; min-width: 40px; display: inline-block;">${term}</span>
@@ -3724,72 +3703,36 @@ function printGuidanceReport() {
           ครูประจำชั้น<br>
           <span style="border-bottom: 1.5px dotted #000; display: inline-block; min-width: 380px;">${teachers.join(' และ ')}</span>
         </div>
-
         <table class="stat-table">
-          <tr>
-            <td rowspan="2" style="width: 28%;">นักเรียน<br>ทั้งหมด</td>
-            <td colspan="2">จำนวนนักเรียน</td>
-            <td rowspan="2" style="width: 28%;">หมายเหตุ</td>
-          </tr>
-          <tr>
-            <td style="width: 22%;">ผ่าน</td>
-            <td style="width: 22%;">ไม่ผ่าน</td>
-          </tr>
-          <tr>
-            <td style="padding: 15px 0;">${rows.length}</td>
-            <td>${passCount}</td>
-            <td>${failCount}</td>
-            <td></td>
-          </tr>
+          <tr><td rowspan="2" style="width: 28%;">นักเรียน<br>ทั้งหมด</td><td colspan="2">จำนวนนักเรียน</td><td rowspan="2" style="width: 28%;">หมายเหตุ</td></tr>
+          <tr><td style="width: 22%;">ผ่าน</td><td style="width: 22%;">ไม่ผ่าน</td></tr>
+          <tr><td style="padding: 15px 0;">${rows.length}</td><td>${passCount}</td><td>${failCount}</td><td></td></tr>
         </table>
-
         <div class="approval-box">
           <div class="fw-bold" style="font-size: 18px; margin-bottom: 20px;">การอนุมัติผลการเรียน</div>
-
           <div style="display: flex; justify-content: space-between; text-align: left;">
-            <div style="flex: 1;">
-              ลงชื่อ............................................................ครูประจำชั้น<br>
-              <div style="margin-top:5px; padding-left: 20px;">( <span style="display:inline-block; min-width:140px; text-align:center;">${teachers[0] || ''}</span> )</div>
-            </div>
-            ${teachers.length > 1 ? `
-            <div style="flex: 1;">
-              ลงชื่อ............................................................ครูประจำชั้น<br>
-              <div style="margin-top:5px; padding-left: 20px;">( <span style="display:inline-block; min-width:140px; text-align:center;">${teachers[1]}</span> )</div>
-            </div>` : ''}
+            <div style="flex: 1;">ลงชื่อ............................................................ครูประจำชั้น<br><div style="margin-top:5px; padding-left: 20px;">( <span style="display:inline-block; min-width:140px; text-align:center;">${teachers[0] || ''}</span> )</div></div>
+            ${teachers.length > 1 ? `<div style="flex: 1;">ลงชื่อ............................................................ครูประจำชั้น<br><div style="margin-top:5px; padding-left: 20px;">( <span style="display:inline-block; min-width:140px; text-align:center;">${teachers[1]}</span> )</div></div>` : ''}
           </div>
-
-          <div class="sign-line" style="margin-top: 25px;">
-            ลงชื่อ......................................................................หัวหน้ากิจกรรมพัฒนาผู้เรียน<br>
-            <span style="display:inline-block; margin-left: 40px; margin-top:5px;">(......................................................................)</span>
-          </div>
-
-          <div class="sign-line">
-            ลงชื่อ......................................................................หัวหน้างานวัดผลและประเมินผล<br>
-            <span style="display:inline-block; margin-left: 40px; margin-top:5px;">( ${evalHeadName} )</span>
-          </div>
-
+          <div class="sign-line" style="margin-top: 25px;">ลงชื่อ......................................................................หัวหน้ากิจกรรมพัฒนาผู้เรียน<br><span style="display:inline-block; margin-left: 40px; margin-top:5px;">(......................................................................)</span></div>
+          <div class="sign-line">ลงชื่อ......................................................................หัวหน้างานวัดผลและประเมินผล<br><span style="display:inline-block; margin-left: 40px; margin-top:5px;">( ${evalHeadName} )</span></div>
           <div style="margin-top: 30px; text-align: right; padding-right: 20px;">
             <div style="font-weight: bold; text-align: center; display: inline-block;">
                เรียน เสนอเพื่อพิจารณาอนุมัติผลการเรียน<br><br>
                <div style="display: flex; justify-content: center; gap: 40px; margin-bottom: 30px;">
-                  <span><span class="radio-circle"></span> อนุมัติ</span>
-                  <span><span class="radio-circle"></span> ไม่อนุมัติ</span>
+                  <span><span class="radio-circle"></span> อนุมัติ</span><span><span class="radio-circle"></span> ไม่อนุมัติ</span>
                </div>
                ลงชื่อ......................................................................<br>
-               <div style="margin-top: 8px;">นางปราณี วาดเขียน</div>
-               <div>ผู้อำนวยการ${schoolName}</div>
+               <div style="margin-top: 8px;">${directorName}</div><div>ผู้อำนวยการ${schoolName}</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ================= หน้า 2: วิสัยทัศน์ พันธกิจ เป้าหมาย ================= -->
+      <!-- ================= หน้า 2: วิสัยทัศน์ ================= -->
       <div class="page" style="padding: 40px;">
         <div class="text-center fw-bold" style="font-size:18px;">วิสัยทัศน์</div>
-        <div style="text-indent: 40px; text-align:justify; margin-bottom:30px;">
-          โรงเรียนบ้านคลอง ๑๔ มุ่งจัดการศึกษาให้เยาวชนเป็นคนดี มีคุณธรรม มีทักษะในการสื่อสาร มีความรู้ความสามารถเต็มเต็มตามศักยภาพของแต่ละบุคคล มีเจตคติที่ดีในการประกอบอาชีพสุจริตและใช้ชีวิตในสังคมได้อย่างมีความสุขตามแนวปรัชญาเศรษฐกิจพอเพียงด้วยกระบวนการบริหารจัดการที่ทันสมัยและการมีส่วนร่วมของบุคคลทั้งในและนอกสถานศึกษา
-        </div>
-
+        <div style="text-indent: 40px; text-align:justify; margin-bottom:30px;">โรงเรียนบ้านคลอง ๑๔ มุ่งจัดการศึกษาให้เยาวชนเป็นคนดี มีคุณธรรม มีทักษะในการสื่อสาร มีความรู้ความสามารถเต็มเต็มตามศักยภาพของแต่ละบุคคล มีเจตคติที่ดีในการประกอบอาชีพสุจริตและใช้ชีวิตในสังคมได้อย่างมีความสุขตามแนวปรัชญาเศรษฐกิจพอเพียงด้วยกระบวนการบริหารจัดการที่ทันสมัยและการมีส่วนร่วมของบุคคลทั้งในและนอกสถานศึกษา</div>
         <div class="text-center fw-bold" style="font-size:18px;">พันธกิจ</div>
         <div style="margin-bottom:30px; padding-left:20px; line-height: 1.8;">
           ๑. ส่งเสริมสนับสนุนให้ชุมชนเข้ามามีส่วนร่วมในการจัดการศึกษา และใช้ภูมิปัญญาท้องถิ่น<br>
@@ -3798,42 +3741,25 @@ function printGuidanceReport() {
           ๔. จัดสภาพแวดล้อมของโรงเรียนให้เอื้อต่อการจัดการเรียนการสอน<br>
           ๕. จัดกิจกรรมโครงการพระราชดำริสมเด็จพระเทพรัตนราชสุดาฯสยามบรมราชกุมารีอย่างต่อเนื่องและเป็นระบบ
         </div>
-
         <div class="text-center fw-bold" style="font-size:18px;">เป้าหมาย</div>
         <div style="padding-left:20px; line-height: 1.8;">
-          ๑. ชุมชนมีส่วนร่วมในการจัดการศึกษา<br>
-          ๒. นำภูมิปัญญาท้องถิ่นมาใช้ในการจัดการเรียนการสอน<br>
-          ๓. ครูจัดการเรียนรู้โดยยึดนักเรียนเป็นสำคัญ<br>
-          ๔. นักเรียนรู้จักแสวงหาความรู้ได้ด้วยตนเองและสร้างองค์ความรู้ได้<br>
-          ๕. นักเรียนมีคุณธรรม จริยธรรมที่ดีงาม<br>
-          ๖. ส่งเสริมสนับสนุนครูและบุคลากรทางการศึกษาพัฒนาตนเองอยู่เสมอและทำการวิจัยในชั้นเรียน<br>
-          ๗. จัดสภาพแวดล้อมในโรงเรียนให้เอื้อต่อการเรียนรู้<br>
-          ๘. จัดกิจกรรมตามโครงการพระราชดำริอย่างต่อเนื่องและเป็นระบบ
+          ๑. ชุมชนมีส่วนร่วมในการจัดการศึกษา<br>๒. นำภูมิปัญญาท้องถิ่นมาใช้ในการจัดการเรียนการสอน<br>๓. ครูจัดการเรียนรู้โดยยึดนักเรียนเป็นสำคัญ<br>๔. นักเรียนรู้จักแสวงหาความรู้ได้ด้วยตนเองและสร้างองค์ความรู้ได้<br>๕. นักเรียนมีคุณธรรม จริยธรรมที่ดีงาม<br>๖. ส่งเสริมสนับสนุนครูและบุคลากรทางการศึกษาพัฒนาตนเองอยู่เสมอและทำการวิจัยในชั้นเรียน<br>๗. จัดสภาพแวดล้อมในโรงเรียนให้เอื้อต่อการเรียนรู้<br>๘. จัดกิจกรรมตามโครงการพระราชดำริอย่างต่อเนื่องและเป็นระบบ
         </div>
       </div>
 
-      <!-- ================= หน้า 3: รายชื่อตามรูปแบบกระดาษ ================= -->
+      <!-- ================= หน้า 3: รายชื่อ ================= -->
       <div class="page">
         <div class="rounded-header">กิจกรรมแนะแนว ระดับชั้น ${clsName}</div>
         <div style="margin-left: 15%; font-size: 16px; margin-bottom: 5px;">จำนวนนักเรียน...........${rows.length}...........คน</div>
-        
         <table>
-          <thead>
-            <tr><th style="width:40px; font-weight:normal;">ที่</th><th style="font-weight:normal;">ชื่อ – สกุล</th><th style="width:30%; font-weight:normal;">หมายเหตุ</th></tr>
-          </thead>
+          <thead><tr><th style="width:40px; font-weight:normal;">ที่</th><th style="font-weight:normal;">ชื่อ – สกุล</th><th style="width:30%; font-weight:normal;">หมายเหตุ</th></tr></thead>
           <tbody>
-            ${rows.map(r => `<tr><td>${r.no}</td><td style="text-align:left; padding-left:15px;">${r.name}</td><td>${r.note}</td></tr>`).join('')}
+            ${rows.map(r => `<tr><td>${r.no}</td><td style="text-align:left; padding-left:15px;">${r.name}</td><td></td></tr>`).join('')}
             ${Array(Math.max(0, 20 - rows.length)).fill('<tr><td><br></td><td></td><td></td></tr>').join('')}
           </tbody>
         </table>
-
         <div class="sign-flex-bottom">
-          ${teachers.map(t => `
-            <div style="text-align:center;">
-              ลงชื่อ..........................................................ครูประจำชั้น<br>
-              <div style="margin-top:10px;">( ${t} )</div>
-            </div>
-          `).join('')}
+          ${teachers.map(t => `<div style="text-align:center;">ลงชื่อ..........................................................ครูประจำชั้น<br><div style="margin-top:10px;">( ${t} )</div></div>`).join('')}
         </div>
       </div>
 
@@ -3845,7 +3771,7 @@ function printGuidanceReport() {
             <tr>
               <th style="width:8%; font-weight:normal;">ครั้ง<br>ที่</th>
               <th style="width:12%; font-weight:normal;">วัน/<br>เดือน/ปี</th>
-              <th style="font-weight:normal;"></th>
+              <th style="font-weight:normal;">หัวข้อกิจกรรม/แผนการจัดการเรียนรู้</th>
               <th style="width:20%; font-weight:normal;">ผู้สอน</th>
             </tr>
           </thead>
@@ -3853,23 +3779,20 @@ function printGuidanceReport() {
             ${Array(displayCols).fill(0).map((_, i) => {
               const dStr = App.guidanceDates[i] ? getVeryShortDate(App.guidanceDates[i]) : '';
               const tStr = App.guidanceDates[i] ? teachers[0] : '';
-              return `<tr><td style="height:28px;">${i+1}</td><td style="font-size:13px;">${dStr}</td><td></td><td style="font-size:13px;">${tStr}</td></tr>`;
+              const topic = topics[i] || '';
+              return `<tr><td style="height:28px;">${i+1}</td><td style="font-size:13px;">${dStr}</td><td style="text-align:left; padding-left:10px; font-size:13px;">${topic}</td><td style="font-size:13px;">${tStr}</td></tr>`;
             }).join('')}
           </tbody>
         </table>
-        <div style="margin-top:20px; text-align:center; letter-spacing: 2px;">......................................................................................................................................................................................................</div>
       </div>
 
-      <!-- ================= หน้า 5: ตารางเช็คชื่อ (ตัวหนังสือแนวตั้ง) ================= -->
+      <!-- ================= หน้า 5: ตารางเช็คชื่อ ================= -->
       <div class="page">
         <div class="text-center fw-bold" style="font-size:18px;">การเข้าร่วมกิจกรรมแนะแนว</div>
         <div class="fw-bold" style="margin-bottom:10px;">ชั้น....................${cls}....................</div>
-        
         <div style="font-size:14px; font-weight:bold; text-decoration:underline;">คำชี้แจง</div>
         <div style="font-size:14px; line-height:1.5; margin-bottom:10px; margin-left:15px;">
-          1. ให้ผู้รับผิดชอบกิจกรรมเขียน ชื่อ/สกุล/ชั้น<br>
-          2. ลงวันที่ของแต่ละเดือนที่มีการปฏิบัติกิจกรรม<br>
-          3. ระบุสาเหตุ ป/ล/ข ด้วยปากกาแดง นักเรียนที่ไม่เข้าร่วมกิจกรรมในแต่ละวัน
+          1. ให้ผู้รับผิดชอบกิจกรรมเขียน ชื่อ/สกุล/ชั้น<br>2. ลงวันที่ของแต่ละเดือนที่มีการปฏิบัติกิจกรรม<br>3. ระบุสาเหตุ ป/ล/ข ด้วยปากกาแดง นักเรียนที่ไม่เข้าร่วมกิจกรรมในแต่ละวัน
         </div>
 
         <table class="att-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
@@ -3883,57 +3806,41 @@ function printGuidanceReport() {
               <th rowspan="3" style="width:30px;">ผล<br>ไม่<br>ผ่าน</th>
             </tr>
             <tr>
-              <!-- แถวเลขครั้งที่ 1 ถึง displayCols -->
               ${Array(displayCols).fill(0).map((_, i) => `<th style="width:20px; font-size:10px;">${i+1}</th>`).join('')}
             </tr>
             <tr style="height: 110px;">
-              <!-- แถววันที่จริง (ดึงจาก App.guidanceDates) -->
               ${Array(displayCols).fill(0).map((_, i) => {
                 const dStr = App.guidanceDates[i]; 
                 if (!dStr) return '<th style="width:20px;"></th>'; 
-                
                 const p = dStr.split('/');
-                const day = parseInt(p[0]);
-                const mNames =["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-                const month = mNames[parseInt(p[1])];
-                const year = parseInt(p[2]) % 100;
-                
-                return `
-                  <th style="width:20px; vertical-align: bottom; padding-bottom: 5px;">
-                    <div style="writing-mode: vertical-rl; transform: rotate(180deg); color: red; font-weight: normal; font-size: 11px; margin: 0 auto;">
-                      ${day} ${month} ${year}
-                    </div>
-                  </th>`;
+                const month =["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."][parseInt(p[1])];
+                return `<th style="width:20px; vertical-align: bottom; padding-bottom: 5px;">
+                  <div style="writing-mode: vertical-rl; transform: rotate(180deg); color: red; font-weight: normal; font-size: 11px; margin: 0 auto;">${parseInt(p[0])} ${month} ${parseInt(p[2])%100}</div>
+                </th>`;
               }).join('')}
             </tr>
           </thead>
           <tbody>
             ${rows.map(r => {
               let attMarks = '';
-              let attended = parseInt(r.attended) || 0;
-              
-              // วนลูปสร้างช่องตารางเช็คชื่อ
               for(let i = 0; i < displayCols; i++) {
                 if(i < App.guidanceDates.length) {
-                   // พิมพ์เครื่องหมาย / เท่ากับจำนวนวันที่นักเรียนมาเรียน
-                   if(i < attended) {
-                     attMarks += `<td style="text-align:center; color:#166534; font-weight:bold;">/</td>`;
-                   } else {
-                     attMarks += `<td></td>`; // ช่องว่างสำหรับวันที่ขาดเรียน
-                   }
-                } else {
-                   attMarks += `<td></td>`; // ช่องว่างสำหรับคอลัมน์ที่เกินวันที่กำหนด
-                }
+                   const val = r.atts[i];
+                   let mark = '-';
+                   if(val === 'ป') mark = `<span style="color:#166534; font-weight:bold;">/</span>`;
+                   else if(val === 'ข') mark = `<span style="color:#dc2626; font-weight:bold;">ข</span>`;
+                   else if(val === 'ล') mark = `<span style="color:#ca8a04; font-weight:bold;">ล</span>`;
+                   attMarks += `<td style="text-align:center;">${mark}</td>`;
+                } else attMarks += `<td></td>`;
               }
-
               return `
                 <tr>
                   <td style="text-align:center;">${r.no}</td>
                   <td style="text-align:left; padding-left:5px; white-space:nowrap;">${r.name}</td>
                   ${attMarks}
                   <td class="fw-bold" style="text-align:center;">${r.attended}</td>
-                  <td class="fw-bold" style="text-align:center;">${r.result === 'ผ่าน' ? '✓' : ''}</td>
-                  <td class="fw-bold" style="text-align:center;">${r.result !== 'ผ่าน' ? '✓' : ''}</td>
+                  <td class="fw-bold" style="text-align:center; color:#166534;">${r.result === 'ผ่าน' ? '✓' : ''}</td>
+                  <td class="fw-bold" style="text-align:center; color:#dc2626;">${r.result !== 'ผ่าน' ? '✓' : ''}</td>
                 </tr>
               `;
             }).join('')}
@@ -3946,125 +3853,7 @@ function printGuidanceReport() {
   `;
   win.document.open(); win.document.write(html); win.document.close();
 }
-  function renderRTWTable() {
-  const container = $('rtwContainer');
-  if (!App.students.length) return;
-
-  const cls = $('gClass').value.trim();
-  
-  // --- ระบบจดจำชื่อครูประจำชั้นแยกตามห้องเรียน ---
-  App.hrMap = App.hrMap || {};
-  let hrTeacherStr = App.hrMap[cls];
-  if (hrTeacherStr === undefined) {
-    hrTeacherStr = (App.user && App.user.classroom === cls) ? App.user.name : "";
-  }
-
-  let indicators =[];
-  let title = "";
-  if (cls.match(/[ป].[1-3]/)) {
-    title = "ระดับชั้นประถมศึกษาปีที่ 1-3";
-    indicators =["1. อ่านและหาประสบการณ์จากสื่อที่หลากหลาย", "2. จับประเด็นสำคัญ ข้อเท็จจริง ความคิดเห็น", "3. เปรียบเทียบแง่มุมต่างๆ (ข้อดี-เสีย/ประโยชน์-โทษ)", "4. แสดงความคิดเห็นต่อเรื่องที่อ่านอย่างมีเหตุผล", "5. ถ่ายทอดความรู้สึกจากเรื่องที่อ่านโดยการเขียน"];
-  } else if (cls.match(/[ป].[4-6]/)) {
-    title = "ระดับชั้นประถมศึกษาปีที่ 4-6";
-    indicators =["1. อ่านเพื่อหาข้อมูลสารสนเทศเสริมประสบการณ์", "2. จับประเด็นสำคัญ เชื่อมโยงความเป็นเหตุผล", "3. เชื่อมโยงความสัมพันธ์ของเรื่องราวและเหตุการณ์", "4. แสดงความคิดเห็นโดยมีเหตุผลสนับสนุน", "5. ถ่ายทอดความคิดเห็นและคุณค่าโดยการเขียน"];
-  } else {
-    title = "ระดับชั้นมัธยมศึกษาปีที่ 1-3";
-    indicators =["1. คัดสรรสื่อเพื่อหาข้อมูลสารสนเทศตามวัตถุประสงค์", "2. จับประเด็นสำคัญ ประเด็นสนับสนุน และโต้แย้ง", "3. วิเคราะห์ วิจารณ์ความสมเหตุสมผลน่าเชื่อถือ", "4. สรุปคุณค่า แนวคิด แง่คิดจากการอ่าน", "5. สรุป อภิปราย ขยายความ แสดงความเห็นโต้แย้งโดยการเขียน"];
-  }
-
-  const criteriaHtml = `
-    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:15px; margin-bottom:15px; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
-      
-      <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; background:#fff; padding:10px 15px; border-radius:6px; border:1px solid #e2e8f0;">
-        <label style="font-weight:bold; color:#1e40af; margin:0; white-space:nowrap; font-size:0.9rem;">👨‍🏫 ครูประจำชั้น:</label>
-        <input type="text" id="rtw_homeroom_teacher" value="${hrTeacherStr}" 
-               oninput="App.hrMap[document.getElementById('gClass').value.trim()] = this.value; if(document.getElementById('guidance_teacher')) document.getElementById('guidance_teacher').value = this.value;" 
-               style="flex:1; max-width:400px; padding:6px 10px; border:1px solid #94a3b8; border-radius:4px; font-weight:bold; font-family:inherit; font-size:0.9rem;" placeholder="นาย ก / นาง ข">
-        <span style="font-size:0.75rem; color:#64748b;">(ระบบจำชื่อแยกตามชั้นอัตโนมัติ)</span>
-      </div>
-
-      <div style="font-weight:bold; color:#0f172a; margin-bottom:10px; font-size:0.95rem; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">
-        📖 เกณฑ์การประเมินและตัวชี้วัด (${title})
-      </div>
-      <div style="display:flex; flex-wrap:wrap; gap:20px; font-size:0.85rem;">
-          <div style="flex:1.5; min-width:300px;">
-              <div style="font-weight:bold; color:#334155; margin-bottom:5px;">📌 ตัวชี้วัดที่ประเมิน:</div>
-              <div style="color:#475569; line-height:1.6; margin-left:10px;">
-                  ${indicators.map(i => `<div>${i}</div>`).join('')}
-              </div>
-          </div>
-          <div style="flex:1; min-width:260px;">
-              <div style="font-weight:bold; color:#334155; margin-bottom:5px;">📊 สัดส่วนคะแนน (100 คะแนน):</div>
-              <div style="color:#475569; line-height:1.6; margin-left:10px; margin-bottom:12px;">
-                  <div><b style="color:#1d4ed8;">การอ่าน (30):</b> วัดข้อ 1-2 (ครั้งละ 15)</div>
-                  <div><b style="color:#c2410c;">การคิด (40):</b> วัดข้อ 3-4 (ครั้งละ 20)</div>
-                  <div><b style="color:#15803d;">การเขียน (30):</b> วัดข้อ 5 (ครั้งละ 15)</div>
-              </div>
-          </div>
-      </div>
-    </div>
-  `;
-  
-  $('rtwIndicatorLabel').innerHTML = criteriaHtml;
-  $('rtwIndicatorLabel').className = "";
-  $('rtwIndicatorLabel').style.border = "none";
-  $('rtwIndicatorLabel').style.background = "transparent";
-
-  const htmlRows = App.students.map((s, idx) => {
-    const r = s.rtw_data || {};
-    return `
-      <tr data-rtwsid="${s.studentId}">
-        <td class="ass-no">${idx + 1}</td>
-        <td class="ass-name" style="text-align:left; background:#fff; position:sticky; left:0; z-index:10;">${s.name}</td>
-        <td><input type="number" class="inp-ass rtw-r1-1" min="0" max="8" value="${r.r1_1||''}" oninput="calcRTWRow(this)"></td>
-        <td><input type="number" class="inp-ass rtw-r1-2" min="0" max="7" value="${r.r1_2||''}" oninput="calcRTWRow(this)"></td>
-        <td class="bg-sum rtw-r1-sum">-</td>
-        <td><input type="number" class="inp-ass rtw-r2-1" min="0" max="8" value="${r.r2_1||''}" oninput="calcRTWRow(this)"></td>
-        <td><input type="number" class="inp-ass rtw-r2-2" min="0" max="7" value="${r.r2_2||''}" oninput="calcRTWRow(this)"></td>
-        <td class="bg-sum rtw-r2-sum">-</td>
-        <td><input type="number" class="inp-ass rtw-c1-3" min="0" max="10" value="${r.c1_3||''}" oninput="calcRTWRow(this)"></td>
-        <td><input type="number" class="inp-ass rtw-c1-4" min="0" max="10" value="${r.c1_4||''}" oninput="calcRTWRow(this)"></td>
-        <td class="bg-sum rtw-c1-sum">-</td>
-        <td><input type="number" class="inp-ass rtw-c2-3" min="0" max="10" value="${r.c2_3||''}" oninput="calcRTWRow(this)"></td>
-        <td><input type="number" class="inp-ass rtw-c2-4" min="0" max="10" value="${r.c2_4||''}" oninput="calcRTWRow(this)"></td>
-        <td class="bg-sum rtw-c2-sum">-</td>
-        <td><input type="number" class="inp-ass rtw-w1-5" min="0" max="15" value="${r.w1_5||''}" oninput="calcRTWRow(this)"></td>
-        <td><input type="number" class="inp-ass rtw-w2-5" min="0" max="15" value="${r.w2_5||''}" oninput="calcRTWRow(this)"></td>
-        <td class="bg-sum rtw-grand-total" style="font-weight:bold; background:#e0f2fe!important; color:#0369a1;">-</td>
-        <td><span class="res-badge rtw-grade">-</span></td>
-      </tr>`;
-  }).join('');
-
-  container.innerHTML = `
-    <div class="ass-wrap">
-      <table class="ass-tbl" id="rtwTable" style="font-size:12px;">
-        <thead>
-          <tr style="background:#f8fafc;">
-            <th rowspan="3">ที่</th><th rowspan="3" style="min-width:160px; z-index:20;">ชื่อ-นามสกุล</th>
-            <th colspan="6" style="background:#dbeafe;">1. การอ่าน (30)</th>
-            <th colspan="6" style="background:#ffedd5;">2. การคิดวิเคราะห์ (40)</th>
-            <th colspan="2" style="background:#dcfce7;">3. การเขียน (30)</th>
-            <th rowspan="3">รวม</th><th rowspan="3">ระดับ</th>
-          </tr>
-          <tr>
-            <th colspan="3">ครั้งที่ 1 (15)</th><th colspan="3">ครั้งที่ 2 (15)</th>
-            <th colspan="3">ครั้งที่ 1 (20)</th><th colspan="3">ครั้งที่ 2 (20)</th>
-            <th>ค1(15)</th><th>ค2(15)</th>
-          </tr>
-          <tr style="font-size:10px;">
-            <th style="background:#eff6ff;">ข้อ 1(8)</th><th style="background:#eff6ff;">ข้อ 2(7)</th><th class="bg-sum">รวม</th>
-            <th style="background:#eff6ff;">ข้อ 1(8)</th><th style="background:#eff6ff;">ข้อ 2(7)</th><th class="bg-sum">รวม</th>
-            <th style="background:#fff7ed;">ข้อ 3(10)</th><th style="background:#fff7ed;">ข้อ 4(10)</th><th class="bg-sum">รวม</th>
-            <th style="background:#fff7ed;">ข้อ 3(10)</th><th style="background:#fff7ed;">ข้อ 4(10)</th><th class="bg-sum">รวม</th>
-            <th style="background:#f0fdf4;">ข้อ 5(15)</th><th style="background:#f0fdf4;">ข้อ 5(15)</th>
-          </tr>
-        </thead>
-        <tbody id="rtwBody">${htmlRows}</tbody>
-      </table>
-    </div>`;
-    
-  $$('#rtwBody tr[data-rtwsid]').forEach(tr => calcRTWRow(tr.querySelector('.rtw-r1-1')));
-}
+ 
 </script>
 </body>
 </html>
