@@ -435,13 +435,10 @@ function printGuidanceReport() {
   rawTeacher = rawTeacher.trim() || '........................................................';
   const teachers = rawTeacher.split(/\s*(?:และ|\/|,)\s*/).filter(t => t);
 
-  const topics      = [...document.querySelectorAll('.guide-topic')].map(i => i.value);
-  const nDates      = App.guidanceDates.length;
+  const topics     = [...document.querySelectorAll('.guide-topic')].map(i => i.value);
+  const teachers_  = [...document.querySelectorAll('.guide-teacher')].map(i => i.value);
+  const nDates     = App.guidanceDates.length;
   const displayCols = Math.max(20, nDates);
-
-  // อ่านหัวข้อกิจกรรมจากส่วนบันทึก
-  const topics   = [...document.querySelectorAll('.guide-topic')].map(i => i.value);
-  const teachers_ = [...document.querySelectorAll('.guide-teacher')].map(i => i.value);
 
   const rows = [...$$('#guidanceBody tr[data-guidesid]')].map((tr, i) => ({
     no      : i + 1,
