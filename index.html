@@ -2920,7 +2920,7 @@ function renderGuidanceTable(isRecalculating = false) {
   if (!App.students.length) return;
 
   if (!isRecalculating) {
-    const cls = $('gClass').value;
+    const cls = $('gClass').value.trim();
     const defaultTerm = cls.includes("เทอม 2") ? "2" : "1";
     
     // --- ระบบจดจำชื่อครูประจำชั้นแยกตามห้องเรียน ---
@@ -2930,14 +2930,14 @@ function renderGuidanceTable(isRecalculating = false) {
       hrTeacherStr = (App.user && App.user.classroom === cls) ? App.user.name : "";
     }
 
-    // ลบแผงควบคุมแนะแนวอันเก่าออกก่อนเพื่อป้องกันกล่องซ้ำกัน
-    const oldPanel = $('guide_panel_control');
-    if (oldPanel) oldPanel.remove();
-    
-    // ค้นหาโค้ด HTML เก่าที่อาจฝังอยู่แต่แรก (ป้องกัน ID ชนกัน)
-    const legacyTeacherInput = document.getElementById('guidance_teacher');
-    if (legacyTeacherInput && !legacyTeacherInput.closest('#guide_panel_control')) {
-        const legacyContainer = legacyTeacherInput.closest('div[style*="display:flex"]');
+    // 1. ล้างแผงควบคุมอันใหม่ที่อาจถูกสร้างซ้ำออกให้หมด (ป้องกันกล่องซ้อนกัน)
+    document.querySelectorAll('#guide_panel_control').forEach(el => el.remove());
+
+    // 2. ค้นหาและลบแผงควบคุมเวอร์ชันเก่าที่ฝังอยู่ใน HTML เดิม
+    // ใช้ ID guidance_max_time เป็นตัวหาเพราะมีเฉพาะในกล่องเวอร์ชันเก่า
+    const legacyMaxTimeInput = document.getElementById('guidance_max_time');
+    if (legacyMaxTimeInput) {
+        const legacyContainer = legacyMaxTimeInput.closest('div[style*="display:flex"]');
         if (legacyContainer) legacyContainer.remove();
     }
 
@@ -2946,7 +2946,7 @@ function renderGuidanceTable(isRecalculating = false) {
         <div style="display:flex; align-items:center; gap:8px;">
           <label style="font-weight:bold; color:#701a75; margin:0;">👨‍🏫 ครูประจำชั้น:</label>
           <input type="text" id="guidance_teacher" value="${hrTeacherStr}" 
-                 oninput="App.hrMap['${cls}'] = this.value; if(document.getElementById('rtw_homeroom_teacher')) document.getElementById('rtw_homeroom_teacher').value = this.value;" 
+                 oninput="App.hrMap[document.getElementById('gClass').value.trim()] = this.value; if(document.getElementById('rtw_homeroom_teacher')) document.getElementById('rtw_homeroom_teacher').value = this.value;" 
                  style="width:250px; padding:6px; border:1px solid #94a3b8; border-radius:4px; font-weight:bold;">
         </div>
         
@@ -2974,9 +2974,10 @@ function renderGuidanceTable(isRecalculating = false) {
         </div>
       </div>
     `;
-    $('panel_guidance').querySelector('.card').insertAdjacentHTML('afterbegin', panelHtml);
     
-    // เรียกคำนวณครั้งแรก
+    // 3. แทรกแผงควบคุมใหม่ 'ก่อนหน้า' ตารางข้อมูล (จะอยู่ใต้หัวข้อ 🧭 พอดีและไม่เด้งไปอยู่บนสุด)
+    container.insertAdjacentHTML('beforebegin', panelHtml);
+    
     setTimeout(calcGuidanceSchedule, 100);
     return; 
   }
@@ -3020,7 +3021,7 @@ function renderGuidanceTable(isRecalculating = false) {
         <tbody id="guidanceBody">${htmlRows}</tbody>
       </table>
     </div>`;
-}
+}}
   
   // 2. ฟังก์ชันคำนวณคะแนนและตัดเกรด
 // ฟังก์ชันคำนวณคะแนน RTW และเลื่อนเคอร์เซอร์อัตโนมัติ (แบบเลื่อนลง)
