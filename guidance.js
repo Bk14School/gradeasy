@@ -537,21 +537,38 @@ function printGuidanceReport() {
 
     // ── ปก (เทอม t) ──
     var pageCover =
-      '<div class="page">' +
-        '<div class="tc"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg/1200px-The_Emblem_of_the_Ministry_of_Education_of_Thailand.svg.png" style="width:75px;margin-bottom:8px;"></div>' +
-        '<div class="cover-box"><div style="font-size:22px;font-weight:bold;">แบบบันทึกผลกิจกรรมแนะแนว</div>' +
-        '<div style="font-size:16px;font-weight:bold;margin-top:6px;">ระดับชั้น <u>' + clsName + '</u> &nbsp; ภาคเรียนที่ <u>' + t + '</u></div></div>' +
-        '<div class="tc" style="font-size:14px;line-height:1.8;">หลักสูตรการศึกษาขั้นพื้นฐาน ระดับชั้น <u>' + clsName + '</u> ภาคเรียนที่ <u>' + t + '</u> ปีการศึกษา <u>' + year + '</u><br>' + schoolName + '<br>' +
-        'ครูประจำชั้น <span style="border-bottom:1.5px dotted #000;display:inline-block;min-width:280px;">' + teachers.join(' และ ') + '</span></div>' +
-        '<table class="st"><tr><td rowspan="2" style="width:25%;">นักเรียนทั้งหมด</td><td colspan="2">จำนวนนักเรียน</td><td rowspan="2" style="width:30%;">หมายเหตุ</td></tr><tr><td>ผ่าน</td><td>ไม่ผ่าน</td></tr>' +
-        '<tr><td style="padding:12px 0;">' + rows.length + '</td><td>' + passCount + '</td><td>' + failCount + '</td><td></td></tr></table>' +
-        '<div class="appr"><div style="font-size:16px;font-weight:bold;margin-bottom:12px;">การอนุมัติผลการเรียน</div><div class="sf">' + signLines + '</div>' +
-        '<div style="margin-top:14px;">ลงชื่อ...............................................หัวหน้ากิจกรรมพัฒนาผู้เรียน<br><span style="margin-left:40px;">(...............................................)</span></div>' +
-        '<div style="margin-top:10px;">ลงชื่อ...............................................หัวหน้างานวัดผลและประเมินผล<br><span style="margin-left:40px;">( ' + evalHeadName + ' )</span></div>' +
-        '<div style="margin-top:16px;text-align:center;"><div style="font-weight:bold;">เรียน เสนอเพื่อพิจารณาอนุมัติผลการเรียน</div>' +
-        '<div style="display:flex;justify-content:center;gap:50px;margin:12px 0;"><span><span class="rc"></span> อนุมัติ</span><span><span class="rc"></span> ไม่อนุมัติ</span></div>' +
-        'ลงชื่อ....................................................................<br>' +
-        '<div style="margin-top:8px;">' + directorName + '</div><div>ผู้อำนวยการ' + schoolName + '</div></div></div>' +
+      '<div class="page cover-page">' +
+        '<div style="text-align:center;margin-top:10mm;margin-bottom:6mm;">' +
+          '<img src="https://raw.githubusercontent.com/Bk14School/easygrade/refs/heads/main/logo-OBEC.png" style="width:90px;height:auto;">' +
+        '</div>' +
+        '<div style="text-align:center;font-size:22px;font-weight:bold;letter-spacing:1px;margin-bottom:4mm;">แบบบันทึกผลกิจกรรมแนะแนว</div>' +
+        '<div style="text-align:center;font-size:17px;font-weight:bold;margin-bottom:8mm;">' +
+          'ระดับชั้น ' + clsName + ' &nbsp;|&nbsp; ภาคเรียนที่ ' + t + ' &nbsp;|&nbsp; ปีการศึกษา ' + year +
+        '</div>' +
+        '<div class="cover-info-box">' +
+          '<div class="cover-row"><span class="cover-label">โรงเรียน</span><span class="cover-val">' + schoolName + '</span></div>' +
+          '<div class="cover-row"><span class="cover-label">หลักสูตร</span><span class="cover-val">การศึกษาขั้นพื้นฐาน &nbsp; ระดับชั้น ' + clsName + '</span></div>' +
+          '<div class="cover-row"><span class="cover-label">ครูประจำชั้น</span><span class="cover-val cover-ul">' + teachers.join(' และ ') + '</span></div>' +
+        '</div>' +
+        '<table class="cover-stat">' +
+          '<tr><th>จำนวนนักเรียนทั้งหมด</th><th>ผ่าน</th><th>ไม่ผ่าน</th><th>หมายเหตุ</th></tr>' +
+          '<tr><td>' + rows.length + '</td><td>' + passCount + '</td><td>' + failCount + '</td><td></td></tr>' +
+        '</table>' +
+        '<div class="appr">' +
+          '<div style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:10px;">การอนุมัติผลการเรียน</div>' +
+          '<div class="sf">' + signLines + '</div>' +
+          '<div class="sign-line">ลงชื่อ.........................................หัวหน้ากิจกรรมพัฒนาผู้เรียน<br><span style="margin-left:50px;">(...........................................................)</span></div>' +
+          '<div class="sign-line">ลงชื่อ.........................................หัวหน้างานวัดผลและประเมินผล<br><span style="margin-left:50px;">( ' + evalHeadName + ' )</span></div>' +
+          '<div style="margin-top:14px;text-align:center;">' +
+            '<div style="font-weight:bold;font-size:15px;">เรียน เสนอเพื่อโปรดพิจารณาอนุมัติผลการเรียน</div>' +
+            '<div style="display:flex;justify-content:center;gap:60px;margin:10px 0;font-size:15px;">' +
+              '<span><span class="rc"></span> อนุมัติ</span><span><span class="rc"></span> ไม่อนุมัติ</span>' +
+            '</div>' +
+            '<div style="font-size:15px;">ลงชื่อ............................................................................</div>' +
+            '<div style="font-size:14px;margin-top:6px;">( ' + directorName + ' )</div>' +
+            '<div style="font-size:13px;">ผู้อำนวยการ' + schoolName + '</div>' +
+          '</div>' +
+        '</div>' +
       '</div>';
 
     // ── รายชื่อ ──
@@ -618,8 +635,18 @@ function printGuidanceReport() {
   var css =
     '@page{size:A4 portrait;margin:12mm;}' +
     '@page att{size:A4 landscape;margin:6mm 7mm;}' +
-    'body{font-family:\'Sarabun\',sans-serif;font-size:14px;color:#000;margin:0;line-height:1.35;}' +
+    'body{font-family:\'Sarabun\',sans-serif;font-size:14px;color:#000;margin:0;line-height:1.4;}' +
     '.page{page-break-after:always;min-height:260mm;padding:8px 18px;}' +
+    '.cover-page{padding:0 20mm;box-sizing:border-box;}' +
+    '.cover-info-box{border:1.5px solid #555;border-radius:8px;padding:10px 16px;margin:0 auto 8mm;max-width:160mm;font-size:14px;line-height:2;}' +
+    '.cover-row{display:flex;align-items:baseline;gap:8px;}' +
+    '.cover-label{font-weight:bold;white-space:nowrap;min-width:70px;}' +
+    '.cover-val{flex:1;border-bottom:1px solid #999;padding-bottom:1px;}' +
+    '.cover-ul{border-bottom:1.5px solid #000 !important;}' +
+    '.cover-stat{width:80%;margin:0 auto 8mm;border-collapse:collapse;font-size:14px;}' +
+    '.cover-stat th,.cover-stat td{border:1px solid #000;padding:8px;text-align:center;}' +
+    '.cover-stat th{background:#f3f4f6;font-weight:bold;}' +
+    '.sign-line{margin-top:8px;font-size:14px;}' +
     '.att-page{page-break-after:always;page:att;padding:6px 10px;}' +
     '.tc{text-align:center;}.fw{font-weight:bold;}' +
     'table{width:100%;border-collapse:collapse;}' +
