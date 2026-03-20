@@ -148,12 +148,14 @@ async function loadGrades() {
     function extractGuidanceMeta(gmap) {
       var topics  = (gmap && gmap['__topics__'])  || [];
       var teacher = (gmap && gmap['__teacher__']) || '';
+      var day     = (gmap && gmap['__day__'])     || '5';
       var clean   = {};
       Object.keys(gmap || {}).forEach(function(k) {
-        if (k !== '__topics__' && k !== '__teacher__') clean[k] = gmap[k];
+        if (k !== '__topics__' && k !== '__teacher__' && k !== '__day__') clean[k] = gmap[k];
       });
       clean._topics  = topics;
-      clean._teacher = teacher; // ครูประจำชั้น (string)
+      clean._teacher = teacher;
+      clean._day     = day; // วันเรียน (1-5)
       return clean;
     }
 
