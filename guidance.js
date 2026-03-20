@@ -84,6 +84,14 @@ function switchGuidanceTab(term, btn) {
   var p2 = document.getElementById('guidanceTerm2Panel');
   if (p1) p1.style.display = term === '1' ? '' : 'none';
   if (p2) p2.style.display = term === '2' ? '' : 'none';
+
+  // sync วันเรียนจาก _day ที่บันทึกไว้ของ term นี้
+  var savedDay = App.guidanceData && App.guidanceData[term] && App.guidanceData[term]._day;
+  if (savedDay) {
+    var sel = document.getElementById('guide_day_t' + term);
+    if (sel) sel.value = savedDay;
+  }
+
   if (App.students && App.students.length) {
     _renderGuidanceForTerm(term);
   }
@@ -166,8 +174,14 @@ function _renderGuidanceForTerm(term) {
   if (!container) return;
 
   // คำนวณวันที่ของ term นั้น
-  var termEl = document.getElementById('guide_day_t' + term);
-  var dayOfWeek = termEl ? parseInt(termEl.value) : 5; // default ศุกร์
+  // ลำดับความสำคัญ: saved _day > select element > default ศุกร์
+  var savedDay  = App.guidanceData && App.guidanceData[term] && App.guidanceData[term]._day;
+  var termEl    = document.getElementById('guide_day_t' + term);
+
+  // ถ้ามีค่า saved ให้ sync เข้า select ก่อนอ่าน
+  if (savedDay && termEl) termEl.value = savedDay;
+
+  var dayOfWeek = termEl ? parseInt(termEl.value) : (savedDay ? parseInt(savedDay) : 5);
 
   var startD = App.termDates['t' + term + '_start'];
   var endD   = App.termDates['t' + term + '_end'];
