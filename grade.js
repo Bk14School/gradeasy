@@ -146,14 +146,14 @@ async function loadGrades() {
 
     // แยก topics/teachers metadata ออกจาก map แล้วเก็บใน App.guidanceData
     function extractGuidanceMeta(gmap) {
-      var topics   = (gmap && gmap['__topics__'])   || [];
-      var teachers = (gmap && gmap['__teachers__']) || [];
-      var clean    = {};
+      var topics  = (gmap && gmap['__topics__'])  || [];
+      var teacher = (gmap && gmap['__teacher__']) || '';
+      var clean   = {};
       Object.keys(gmap || {}).forEach(function(k) {
-        if (k !== '__topics__' && k !== '__teachers__') clean[k] = gmap[k];
+        if (k !== '__topics__' && k !== '__teacher__') clean[k] = gmap[k];
       });
-      clean._topics   = topics;
-      clean._teachers = teachers;
+      clean._topics  = topics;
+      clean._teacher = teacher; // ครูประจำชั้น (string)
       return clean;
     }
 
